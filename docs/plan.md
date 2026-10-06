@@ -68,6 +68,7 @@ flowchart TD
   T33 --> T7
   T36 --> T7
   T5 --> T8
+  T7 --> T8
   T3 --> T9
   T4 --> T9
   T33 --> T9
@@ -109,6 +110,7 @@ flowchart TD
   T4 --> T26
   T18 --> T26
   T25 --> T26
+  T20 --> T26
   T14 --> T27
   T24 --> T27
   T26 --> T27
@@ -164,7 +166,7 @@ flowchart TD
 | #16 | Hub daemon on a Unix socket | R1 | #1 | #14 |
 | #17 | dr-hook: Rust hook client with fail-open and fast rules | R1 | #1 | #13, #16 |
 | #18 | Claude Code adapter, watch-only: sessions, tool calls and commits | R1 | #1 | #16, #17, #44, #47 |
-| #19 | CLI basics: status, doctor, off and on, debug bundle | R1 | #1 | #16 |
+| #19 | CLI basics: init, status, doctor, off and on, debug bundle | R1 | #1 | #16, #18 |
 | #20 | Transcript archive for Claude Code, Codex and pi | R1 | #1 | #14, #15, #44 |
 | #21 | End-to-end: hook overhead and fail-open under real sessions | R1 | #1 | #17, #18, #48 |
 | #22 | Asks: kinds, batching, daily cap and the inbox | R1 | #2 | #14 |
@@ -182,7 +184,7 @@ flowchart TD
 | #34 | HTTP API and live stream for the local view | R1 | #4 | #16, #22, #28 |
 | #35 | Local view: Inbox, Live, Changes and Decided for you | R1 | #4 | #34, #45 |
 | #36 | Environment: dr env up with leased ports and PID tracking | R1 | #4 | #16, #44 |
-| #37 | Journeys: Playwright, end-state checks, evidence and a feature list | R1 | #4 | #15, #29, #36 |
+| #37 | Journeys: Playwright, end-state checks, evidence and a feature list | R1 | #4 | #15, #29, #36, #31 |
 | #38 | End-to-end: journey evidence in the view, taste call answered there | R1 | #4 | #25, #35, #37, #48 |
 | #39 | Codex adapter: hooks, trust step and Stop hold delivery | R1 | #5 | #17, #22, #29, #47 |
 | #40 | pi package: in-process client, native tools and sendUserMessage delivery | R2 | #6 | #22, #29, #44, #47 |
