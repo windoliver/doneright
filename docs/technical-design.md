@@ -10,7 +10,7 @@ The product, its reasoning and the roadmap are in the [product doc](./product.md
 
 - **The core:** the record, gates, asks and the adapter contract.
 - **Adapters:** Claude Code (terminal and desktop app) and Codex. pi follows in R2.
-- **Done gate:** runs when an agent says it's done. Checks come from the repo's `.doneright/` specs, the issue's acceptance criteria and the agent's plan.
+- **Done gate:** runs when an agent says it's done. Checks come from the repo's `.doneright/` specs, the issue's acceptance criteria and the agent's plan. Nobody writes the specs by hand: `dr init` drafts them from what the repo already runs, agents propose journeys, and you approve once.
 - **Checks:** shell commands and browser journeys with Playwright.
 - **Asks:** the inbox, a resolver that reuses your saved decisions, and delivery back into sessions.
 - **Surfaces:** the CLI, the local view and the MCP tools.
@@ -135,7 +135,7 @@ runs needed for a check that may be flaky:
 - **Check health.** Each run records how many tests actually ran. A run of zero tests, or a step that was skipped, counts as INVALID, never as a pass.
 - **Pinned to a commit.** A verdict covers exactly one commit. A new commit marks it stale, and only checks whose inputs changed run again. The cache key is the commit, the spec's hash and the environment's fingerprint.
 - **Known failures.** A failure can be accepted only by matching its exact error text, with an owner and an expiry date. Any other failure still fails.
-- **Protection.** Specs under `.doneright/` and the expected outputs they reference are protected by a guard that is fail-closed. An agent proposes a change as an ask, and the owner approves it.
+- **Protection.** Specs under `.doneright/` and the expected outputs they reference are protected by a guard that is fail-closed. An agent proposes a change with `dr_propose`. A proposal runs at once, but it decides nothing until the owner approves it.
 
 ## Five ways in, all onto the same core
 
@@ -172,7 +172,7 @@ The core refuses anything that would break an invariant. A check runner can't re
 | Interface | Shape | Used by |
 |---|---|---|
 | JSON-RPC | The same methods as the extension API, over stdio as JSON lines | Extensions and adapters written in any other language |
-| MCP tools | `dr_ask` (waits, and says "still waiting" before the agent's tool timeout), `dr_wait`, `dr_claim`, `dr_run`, `dr_open_item`, `dr_evidence`, `dr_env`, `dr_status`, and `dr_search`, which searches past decisions, verdicts and open items read-only. Agents get no tool to answer, decide or overrule. | Claude Code and Codex. pi registers the same tools natively. |
+| MCP tools | `dr_ask` (waits, and says "still waiting" before the agent's tool timeout), `dr_wait`, `dr_claim`, `dr_propose` (proposes a check, a journey or a spec change; nothing applies until you approve it), `dr_run`, `dr_open_item`, `dr_evidence`, `dr_env`, `dr_status`, and `dr_search`, which searches past decisions, verdicts and open items read-only. Agents get no tool to answer, decide or overrule. | Claude Code and Codex. pi registers the same tools natively. |
 | HTTP | `GET /api/inbox · sessions · changes/:id · evidence/:sha · numbers`, `POST /api/asks/:id/answer`, `POST /api/decisions/:id/overrule`, and a live stream at `/api/stream`. Every request needs the launch token and an Origin of 127.0.0.1. | The local view |
 | OTLP (optional) | An OpenTelemetry receiver on 127.0.0.1 that turns an agent's own telemetry into events: Claude Code's tool spans, the time each call waited on you, and each model request's cost | Agents that export OpenTelemetry |
 | CLI | `dr init · doctor · status · inbox · show · view · run · claim · env up\|down · report · off\|on · debug bundle · install · hub start\|stop` | You, and scripts |
@@ -245,9 +245,10 @@ dr-hook first checks the fast rules in `rules.json`, such as no kills by name an
 
 | Extension | What it does in v0 |
 |---|---|
-| done-gate | Makes a claim from the agent's last message. It reads the issue's acceptance criteria through the GitHub API, the plan's proof section if there is one, and the repo's `.doneright/done.yaml`. It picks checks, runs them, and maps the verdict to "Closes" or "Part of". It also turns the agent's "still open" list into open items, and flags placeholder text left in changed files. |
+| done-gate | Makes a claim from the agent's last message. It reads the issue's acceptance criteria through the GitHub API, the plan's proof section if there is one, and the repo's `.doneright/done.yaml`. It picks checks, runs them, and maps the verdict to "Closes" or "Part of". It also turns the agent's "still open" list into open items, and flags placeholder text left in changed files. In a repo with no spec yet, it asks spec-draft for one, and only watches until you approve it. |
+| spec-draft | Drafts a repo's `.doneright/`, so nobody writes it by hand. It reads what the repo already says, without running anything: CI workflow steps, package scripts, Makefile and justfile targets, test-runner config, dev scripts or a compose file with ports and a health route, Playwright or Cypress suites, and "run this before saying done" lines in `AGENTS.md` or `CLAUDE.md`. It also reads your past "is it done?" asks in that repo from the transcript archive, so a check you kept asking about is named as the reason it's there. Once you trust the project, it runs each candidate once in the hermetic runner, and leaves out any that runs zero tests or can't start, with the reason. You approve the draft once, in `dr init` or the inbox, and `dr` writes the files for you to commit. Later, a changed source, such as a new CI step or a renamed script, becomes one proposed diff. It also validates and runs what agents propose with `dr_propose`: a check, a journey or a feature entry. |
 | checks-command | Runs a shell command in the session's worktree and records its exit code, its output and how many tests ran. Runs are hermetic: a cleared environment with only allowlisted variables, a temporary home directory, and one process per check, so a pass can't depend on your machine's state. For fixes, it runs again on the merge base. |
-| journeys | Drives a browser journey with Playwright against the environment and checks the end state. It starts from a feature list in `.doneright/features/`. It saves video, screenshots and the trace as evidence, which outlives the environment's teardown. A journey that passes is saved as a replayable script. It runs the changed feature's journeys plus their nearest neighbors, the features that share changed files. |
+| journeys | Drives a browser journey with Playwright against the environment and checks the end state. It starts from a feature list in `.doneright/features/`, which agents propose and you approve. When a change touches a feature with no journey, the agent that made it is asked to propose one. It saves video, screenshots and the trace as evidence, which outlives the environment's teardown. A journey that passes is saved as a replayable script. It runs the changed feature's journeys plus their nearest neighbors, the features that share changed files. |
 | env-local | Starts the repo's own dev scripts or compose file and checks health. It leases ports per worktree, and test accounts, phone numbers, simulators and screens per session, each with a cap, a cooldown and a cost estimate. It tears everything down by PID. |
 | resolver-decisions | Answers an ask only when a saved decision matches its kind, its normalized question and its scope exactly. A near match is suggested to you, never applied on its own. |
 | view | The local view panels: Inbox, Live, Changes, Decided for you, Numbers and Guards. |
@@ -256,7 +257,7 @@ dr-hook first checks the fast rules in `rules.json`, such as no kills by name an
 | github | Posts each verdict as a commit status that branch protection can require, the way gh-signoff does local CI. In R2 it adds a PR comment with the verdict and open items, and `dr report`, one self-contained HTML file per change. |
 
 ```
-# .doneright/done.yaml — protected; agents propose changes as asks
+# .doneright/done.yaml — drafted by dr init, approved once, then protected
 claims:
   done:
     checks: [unit, typecheck, journey:checkout]
@@ -280,10 +281,10 @@ environment:
 | Threat | Mitigation |
 |---|---|
 | Injected answers | An answer reaches an agent as an instruction, so answers come only from the CLI and the local view. The view listens on 127.0.0.1 only, needs a new token each launch, and checks the Origin. The hub socket is readable only by you. Content in web pages, issues or tool output is data and never becomes an answer. |
-| Agents gaming checks | Specs and expected outputs are protected by a fail-closed guard. Decisions live in `~/.doneright`, outside every repo, and agents have no tool to answer or decide. Each run records its environment fingerprint and the commit it ran on. |
+| Agents gaming checks | Specs and expected outputs are protected by a fail-closed guard, and a drafted or proposed check decides nothing until you approve it. Decisions live in `~/.doneright`, outside every repo, and agents have no tool to answer or decide. Each run records its environment fingerprint and the commit it ran on. |
 | Malicious extensions | Extensions run as code. They install at user level and are pinned to a version. A project's extensions load only after you trust the project. `dr install` shows the package's source and permissions first. |
 | Secrets | Transcripts and evidence are redacted on the way in. Environment variables are recorded by name only. A key pasted into chat opens a "rotate this key" item. Nothing syncs by default. |
-| Untrusted repos | A repo's `.doneright/` specs run commands. They run only after you trust the project, the way pi, Claude Code and Codex treat project settings. Until then, `dr` only watches. |
+| Untrusted repos | A repo's `.doneright/` specs run commands. They run only after you trust the project, the way pi, Claude Code and Codex treat project settings. Drafting a spec runs the repo's commands too, so it waits for the same trust. Until then, `dr` only watches. |
 | Collateral damage | `dr` stops only processes it started, by PID, and never kills by name or port. Temporary worktrees are its own, and it never runs git in another worktree or uses a stash. |
 | A broken hub | dr-hook fails open, except for fail-closed fast rules. A crash loses nothing, because the hub replays from the event log on restart. |
 
@@ -301,7 +302,7 @@ environment:
 ## How it installs
 
 - **Version 0 runs from the checkout** on the maintainer's machine. In R2 it becomes **one npm package,** `doneright`, with the `dr` command. dr-hook ships as per-platform optional packages, the way esbuild and Biome ship their binaries. It needs Node 22.19 or newer, the same as pi.
-- **`dr init`** installs through each agent's own mechanism: a Claude Code plugin, a pi package, entries in Codex's `hooks.json`, and later a Cursor plugin. It merges with hooks you already have, shows the exact diff, and writes only after you say yes. For Codex, it reminds you to approve the hooks once in `/hooks`. `dr init --undo` removes everything it added.
+- **`dr init`** installs through each agent's own mechanism: a Claude Code plugin, a pi package, entries in Codex's `hooks.json`, and later a Cursor plugin. It merges with hooks you already have, shows the exact diff, and writes only after you say yes. For Codex, it reminds you to approve the hooks once in `/hooks`. `dr init --undo` removes everything it added. Run inside a repo, it then drafts that repo's spec, as spec-draft describes.
 - **The repo** has `packages/` for the core, hub, CLI, view, MCP server, contracts, the first-party extensions and the adapters, and `crates/dr-hook` for the hook client.
 - **Libraries:** better-sqlite3 behind a small storage interface, Ajv with JSON Schemas as the source of every contract and generated TypeScript types, Vitest, Playwright and Preact. `node:sqlite` still prints an "experimental" warning on Node 23.9, so it waits.
 - **Contracts** are published separately as JSON Schemas, with the conformance tests other tools can run.
@@ -343,9 +344,9 @@ Exit: a journey's video and screenshots show up in the view, and a taste call is
 
 ### Nov 2–8
 
-**Codex and dogfooding.** The Codex adapter with its trust step, then a week of real use across Claude Code and Codex sessions, run from the checkout. The pi package, npm packaging, the Claude Code plugin, the PR comment, `dr report` and the OTLP receiver move to R2.
+**Codex, spec drafting and dogfooding.** The Codex adapter with its trust step, and spec drafting: `dr init` drafts each repo's `.doneright/`, and agents propose journeys with `dr_propose`. Then a week of real use across Claude Code and Codex sessions, run from the checkout. The pi package, npm packaging, the Claude Code plugin, the PR comment, `dr report` and the OTLP receiver move to R2.
 
-Exit: used for a week across Claude Code and Codex on the maintainer's machine. Decision 1 compares "is it done?" follow-ups and asks per merged change against the pilot baseline.
+Exit: used for a week across Claude Code and Codex on the maintainer's machine, with every repo's spec drafted and approved, none written by hand. Decision 1 compares "is it done?" follow-ups and asks per merged change against the pilot baseline.
 
 ## What each project we studied changed in this design
 
@@ -358,6 +359,7 @@ Exit: used for a week across Claude Code and Codex on the maintainer's machine. 
 | Claude Code, Codex, Cursor | Hook behavior: Stop holds, background waiters that wake a session, and Codex background hooks that can't. Also plugins as the install path, and OpenTelemetry tool spans. | Adapters, packaging, the OTLP receiver |
 | OptChat | The history is the memory, and agents can search it | `dr_search` |
 | Playwright, Infracost, Cartography, CloudQuery | Journeys with traces now. Cost diffs on infra changes and infra inventories later. | Journeys, then the money and infra extensions |
+| Vercel, Railpack, Nx, act, Claude Code's /init | Configuration drafted from what a repo already has, then reviewed: framework detectors with their dev commands, start commands found without running anything, test targets inferred from existing config, workflow steps read from CI, and an instruction file drafted from the codebase that improves on what's there rather than overwriting it. | spec-draft |
 | Anthropic's SDLC playbook | Plans with a proof section, review passes, control bands, and rehearsed rollback | The done gate reads the plan's proof; the rest lands in R2 to R4 |
 | prove_it (searlsco) | A Claude Code harness that stops Claude from finishing until tests pass. It runs reviewer subagents in the background and enforces their verdict at the next stop, and triggers heavy checks on a done signal, on lines changed, or when the agent loops. | Slow-lane verdicts delivered at the next stop (v0); churn and loop triggers and reviewer subagents (R4) |
 | DoneGate | Completion needs the right commit, owned file paths, an active lease and evidence, never just an exit code | Leases (v0); claims and path ownership in the team guards (R4) |

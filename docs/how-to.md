@@ -4,8 +4,8 @@
 > **Status: design.** This guide describes version 0, due November 8, 2026. Commands and file formats may change before then. Each section links the issue that builds it.
 
 - [Install and remove](#install-and-remove)
-- [Tell DoneRight what "done" means](#tell-doneright-what-done-means)
-- [Write a journey](#write-a-journey)
+- [What "done" means, drafted for you](#what-done-means-drafted-for-you)
+- [Journeys](#journeys)
 - [Prompts that work](#prompts-that-work)
 - [The inbox](#the-inbox)
 - [How your answer reaches the agent](#how-your-answer-reaches-the-agent)
@@ -22,18 +22,39 @@ Version 0 runs from a checkout of this repo and needs Node 22.19 or newer and Ru
 git clone https://github.com/windoliver/doneright && cd doneright
 npm install && npm run build
 npm link     # puts `dr` on your PATH
+cd ~/code/your-app
 dr init
 ```
 
-`dr init` shows the exact hook entries it will add, at user level, for Claude Code and Codex. It merges with hooks you already have, and writes nothing until you say yes.
+`dr init` shows the exact hook entries it will add, at user level, for Claude Code and Codex. It merges with hooks you already have, and writes nothing until you say yes. Run inside a repo, it then drafts that repo's checks, as the next section describes.
 
 - **Codex** asks you to approve new hooks once. Open Codex and approve them in `/hooks`.
 - **Your existing hooks** keep working. `dr doctor` reports any other hook-based tool it finds and the order hooks run in.
 - **Remove it** with `dr init --undo`, which removes everything `dr init` added. For a quick pause, `dr off` makes every gate watch-only, and `dr on` turns them back on.
 
-## Tell DoneRight what "done" means
+## What "done" means, drafted for you
 
-Each repo describes its checks in `.doneright/done.yaml` ([#32](https://github.com/windoliver/doneright/issues/32)). The file is reviewed like code. Agents can't edit it: if one needs a change, it asks you.
+Each repo's checks live in `.doneright/done.yaml` ([#32](https://github.com/windoliver/doneright/issues/32)), but you don't write it. Run inside a repo, `dr init` drafts it from what the repo already says ([#50](https://github.com/windoliver/doneright/issues/50)):
+
+| Source | What it gives |
+|---|---|
+| CI workflows | The test, typecheck and lint commands your CI already runs |
+| Package scripts, Makefile, justfile | Test commands, and how to start the app |
+| `AGENTS.md` or `CLAUDE.md` | Rules such as "run lint before saying done" |
+| Playwright or Cypress suites | The journeys you already have |
+| Your past sessions in this repo | The checks you kept asking agents about |
+
+Nothing runs until you trust the project. Then each candidate runs once in a clean environment, and one that runs zero tests, can't start or already fails is shown with its reason and left out. You approve the draft once, keeping, dropping or editing each line. `dr` writes `.doneright/`, and you commit it like any other change.
+
+If an agent works in a repo where you haven't run `dr init`, the draft waits in your inbox as one approval. Until you answer, verdicts there are watch-only.
+
+**It keeps itself current.**
+
+- A new CI step or a renamed script becomes one proposed change.
+- When an agent changes a page that has no journey, the done gate asks it to propose one with `dr_propose`. The journey runs at once and its evidence is attached, but it decides nothing until you approve it.
+- Agents can't write the spec. Each proposal reaches you once, and you can always edit the file by hand. It's reviewed like code.
+
+A draft looks like this:
 
 ```yaml
 claims:
@@ -45,7 +66,7 @@ claims:
 checks:
   unit:
     type: command
-    run: "npm test"
+    run: "npm test"                      # drafted from .github/workflows/ci.yml
     min_tests: 1                         # zero tests run is INVALID, never a pass
   typecheck:
     type: command
@@ -70,9 +91,9 @@ What happens with it:
 - **Untrusted repos are watch-only.** A repo's `.doneright/` runs commands, so it runs only after you trust the project. Until then, DoneRight only watches.
 - **The issue counts too.** If the agent is working on an issue, its acceptance criteria are added to the claim. A criterion without proof keeps the PR at "Part of #n" instead of "Closes #n".
 
-## Write a journey
+## Journeys
 
-A journey is a user task in plain words plus the end state to check ([#37](https://github.com/windoliver/doneright/issues/37)). Check the result a user would see, not a label or a log line.
+A journey is a user task in plain words plus the end state to check ([#37](https://github.com/windoliver/doneright/issues/37)). It checks the result a user would see, not a label or a log line. Agents propose journeys, and you approve each one once. For an app that has none yet, ask your agent: "Propose DoneRight journeys for sign-up and checkout." A proposal looks like this:
 
 ```yaml
 journey: checkout-with-test-card@1
@@ -87,7 +108,7 @@ evidence: video, screenshots, network log
 protects: class "a paid order isn't recorded"
 ```
 
-- List your app's user-facing features in `.doneright/features/`. DoneRight reports features that have no journey yet.
+- Agents propose the feature list in `.doneright/features/` the same way. DoneRight reports features that have no journey yet.
 - When a change touches a file several features share, those features' journeys run too.
 - Video, screenshots and the Playwright trace are kept as evidence, even after the environment is torn down.
 - Credentials never go in journey files. They come from the leases in `done.yaml`.
@@ -95,6 +116,12 @@ protects: class "a paid order isn't recorded"
 ## Prompts that work
 
 DoneRight briefs every session when it starts, so agents already know how to claim done and how to ask you. These habits make it sharper.
+
+**Set up a repo without writing config**
+
+> Set up DoneRight for this repo, with journeys for sign-up and checkout.
+
+The agent proposes the spec with `dr_propose`. DoneRight runs every check once on your stack, then sends you one approval with the journeys' videos.
 
 **Fix a bug so it stays fixed**
 
@@ -136,7 +163,7 @@ Answer once, in `dr inbox` or `dr view`. The answer is saved as a decision, and 
 ## DoneRight
 - When you believe a task is done, call `dr_claim` or say "done". DoneRight runs the checks; don't claim done without them.
 - If you need a decision from me, use `dr_ask` and keep working on whatever doesn't depend on it.
-- Never edit files under `.doneright/`. Propose a change with `dr_ask` instead.
+- Never edit files under `.doneright/`. Propose a change with `dr_propose` instead.
 ```
 
 ## The inbox
@@ -190,6 +217,7 @@ Each verdict posts a commit status named `doneright/verdict` ([#46](https://gith
 | Something seems off | Run `dr doctor`. It checks hooks, ports, disk, sign-ins and token lifetimes, and names the fix. |
 | DoneRight is in the way | Run `dr off`. Every gate becomes watch-only at once; `dr on` restores them. |
 | The hub isn't running | Agents keep working: hooks let actions through when the hub is down. The default safety rules still block, such as killing processes by name. |
+| A check you expected isn't in the draft | `dr init` lists what it found and why it left anything out. Add the check in the edit step, or ask your agent to propose it. |
 | A check is `INVALID` with zero tests | The command ran but no tests executed. Check its filter or path. |
 | A check is `BLOCKED` | `dr show <id>` names the missing piece and its owner. |
 | You want to report a bug | Run `dr debug bundle`. It writes a redacted bundle of logs, versions and doctor output to attach to an issue. |
@@ -201,6 +229,6 @@ Each verdict posts a commit status named `doneright/verdict` ([#46](https://gith
 | The record | `~/.doneright/ledger.db` | An append-only SQLite event log |
 | Evidence | `~/.doneright/evidence/` | Screenshots, video and traces, named by content hash; kept 30 days unless a decision cites them |
 | Transcript archive | `~/.doneright/archive/` | Copies of agent transcripts, saved before the agents' own cleanup deletes them |
-| Repo specs | `.doneright/` in each repo | Reviewed like code; agents can't edit them |
+| Repo specs | `.doneright/` in each repo | Drafted by `dr init`, approved by you and reviewed like code; agents can't edit them |
 
 Keys and tokens are redacted on the way in. Nothing leaves your machine unless you install and turn on an extension that syncs.

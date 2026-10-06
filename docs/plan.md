@@ -46,9 +46,10 @@ flowchart TD
     T27["#38 End-to-end"]
     T34["#45 Readings"]
   end
-  subgraph E5["#5 Codex and dogfooding R1 week 5, Nov 2–8"]
+  subgraph E5["#5 Codex, spec drafting and dogfooding R1 week …"]
     T28["#39 Codex adapter"]
     T32["#43 Dogfood week and Decision 1 numbers"]
+    T39["#50 Spec drafting"]
   end
   subgraph L1["#6 R2 · Find, and trust the numbers"]
     T29["#40 pi package"]
@@ -132,6 +133,12 @@ flowchart TD
   T27 --> T32
   T28 --> T32
   T34 --> T32
+  T39 --> T32
+  T8 --> T39
+  T15 --> T39
+  T21 --> T39
+  T26 --> T39
+  T34 --> T39
   T2 --> T33
   T5 --> T33
   T7 --> T34
@@ -190,7 +197,8 @@ flowchart TD
 | #40 | pi package: in-process client, native tools and sendUserMessage delivery | R2 | #6 | #22, #29, #44, #47 |
 | #41 | Packaging: npm, prebuilt dr-hook, Claude Code plugin and dr init | R2 | #6 | #18, #39, #40, #44 |
 | #42 | OTLP receiver for agent telemetry | R2 | #6 | #14 |
-| #43 | Dogfood week and Decision 1 numbers | R1 | #5 | #33, #38, #39, #45 |
+| #43 | Dogfood week and Decision 1 numbers | R1 | #5 | #33, #38, #39, #45, #50 |
+| #50 | Spec drafting: find the checks a repo already runs, prove they work, ask once | R1 | #5 | #19, #26, #32, #37, #45 |
 | #44 | Extension host and the extension API | R1 | #1 | #13, #16 |
 | #45 | Readings: your time, agent spend and lifecycle numbers | R1 | #4 | #18, #20, #44 |
 | #46 | GitHub: verdicts as commit statuses | R1 | #3 | #15, #32 |

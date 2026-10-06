@@ -10,6 +10,7 @@ Writing code is cheap now. Knowing a change is right is the bottleneck. In a 30-
 ## Highlights
 
 - **Proof, not promises.** When an agent claims "done", "fixed" or "no visible change", DoneRight runs the checks itself. A fix counts only if its check fails on the old code and passes on yours.
+- **No config to write.** `dr init` drafts each repo's checks from what's already there: CI, package scripts, `AGENTS.md`, and the checks you kept asking agents about. It runs each one once and asks you to approve. Agents propose the rest, such as a journey for a page they change.
 - **Five honest verdicts.** `PASS`, `FAIL`, `INCONCLUSIVE`, `BLOCKED` and `INVALID`. A skipped or unrun check is never green.
 - **Only what needs you.** Taste calls, approvals, and blocks only you can clear land in one inbox. Answers you've given before are reused, and your answer goes straight back into the agent's running session.
 - **Real surfaces.** Browser journeys run on your real local stack, with video and screenshots as evidence. Ports, test accounts and devices are leased per session, so parallel agents don't collide.
@@ -26,26 +27,31 @@ Version 0 runs from a checkout and needs Node 22.19 or newer and Rust. The npm p
 git clone https://github.com/windoliver/doneright && cd doneright
 npm install && npm run build
 npm link     # puts `dr` on your PATH
-dr init      # shows the exact hooks it will add for Claude Code and Codex; writes nothing until you say yes
+cd ~/code/your-app
+dr init      # adds the hooks, then drafts what "done" means for this repo
 dr doctor    # checks the hooks, ports, disk and sign-ins
 ```
 
-Then tell DoneRight what "done" means in your project, in `.doneright/done.yaml`:
+You don't write any config. `dr init` reads what your repo already says, runs each check it finds once, and asks you once:
 
-```yaml
-claims:
-  done:
-    checks: [unit, journey:checkout]
-checks:
-  unit:      { type: command, run: "npm test", min_tests: 1 }
-  journey:checkout:
-    type: journey
-    file: .doneright/journeys/checkout.yaml
-environment:
-  up: "npm run dev"
-  ports: [web]
-  ready: { http: "http://localhost:${web}/health" }
+```text
+$ dr init
+Add hooks for Claude Code and Codex at user level? [y/N/diff] y
+Trust ~/code/shop and draft what "done" means here? [y/N] y
+
+Read CI, package.json, CLAUDE.md and your past sessions here. Ran each check once:
+  unit        npm test              from ci.yml                     214 tests, 38 s
+  typecheck   npm run typecheck     from ci.yml                     passed, 12 s
+  lint        npm run lint          CLAUDE.md: "lint before done"   passed, 4 s
+  e2e         npx playwright test   you asked about it 14 times     3 journeys, 71 s
+  app         npm run dev           web on a leased port            ready at /health, 9 s
+Write .doneright/done.yaml? [Y/n/edit] y
+Wrote .doneright/. Commit it with your next change.
 ```
+
+*The output is illustrative.*
+
+From then on, the spec keeps itself current. A new CI step becomes a proposed change, and an agent that changes a page with no journey is asked to propose one. Each proposal reaches you once, and agents can't change the checks themselves.
 
 Work as usual. When an agent says it's done or opens a PR, DoneRight steps in. These commands show what happened:
 
@@ -94,6 +100,7 @@ You don't need special prompts. DoneRight briefs each session when it starts and
 
 | You want | Tell your agent | What DoneRight does |
 |---|---|---|
+| A repo set up without writing config | "Set up DoneRight for this repo, with journeys for sign-up and checkout." | The agent proposes the spec with `dr_propose`. DoneRight runs every check once on your stack and sends you one approval, with the journeys' videos |
 | A fix that stays fixed | "Fix #123. Reproduce it with a failing test first, then say done." | Reads #123's acceptance criteria, and requires the test to fail on the merge base and pass on your branch |
 | No visible change | "Refactor the billing module with no visible change." | Diffs the journeys against the merge base: screens, requests and timings |
 | Work while you're away | "Finish the open PRs on this branch. Ask me only taste calls." | Runs slow checks in the background, posts verdicts as commit statuses, and batches taste calls in the inbox |
@@ -106,10 +113,10 @@ You can also add this to your `AGENTS.md` or `CLAUDE.md`:
 ## DoneRight
 - When you believe a task is done, call `dr_claim` or say "done". DoneRight runs the checks; don't claim done without them.
 - If you need a decision from me, use `dr_ask` and keep working on whatever doesn't depend on it.
-- Never edit files under `.doneright/`. Propose a change with `dr_ask` instead.
+- Never edit files under `.doneright/`. Propose a change with `dr_propose` instead.
 ```
 
-The [how-to guide](docs/how-to.md) has more prompts, the full `done.yaml` reference, journeys and troubleshooting.
+The [how-to guide](docs/how-to.md) has more prompts, how drafting works, a full `done.yaml`, journeys and troubleshooting.
 
 ## How it fits together
 
@@ -121,7 +128,7 @@ flowchart LR
   subgraph HUB[DoneRight hub, on your machine]
     R[Record] --- G[Gates] --- K[Asks] --- AD[Adapters]
   end
-  HUB --- X[Extensions: done gate, journeys, environments, resolvers, GitHub]
+  HUB --- X[Extensions: spec drafting, done gate, journeys, environments, resolvers, GitHub]
   You((You)) -- dr inbox · dr view --> HUB
 ```
 
@@ -136,8 +143,8 @@ The [technical design](docs/technical-design.md) covers the architecture, data m
 
 - Everything stays on your machine. The local view listens only on `127.0.0.1`, with a new token each launch.
 - Answers reach an agent as instructions, so only you can give them: from the CLI or the local view, never from a web page or tool output.
-- Hooks install at user level only, never into a repo's settings. A repo's `.doneright/` specs run only after you trust the project.
-- Agents can't edit checks, expected outputs or your decisions.
+- Hooks install at user level only, never into a repo's settings. A repo's `.doneright/` specs, and the commands a draft tries, run only after you trust the project.
+- Agents can't edit checks, expected outputs or your decisions. What they propose decides nothing until you approve it.
 - Transcripts and evidence are redacted for keys and tokens as they come in.
 - DoneRight never kills processes by name or port. It stops only what it started, by PID.
 
@@ -156,6 +163,8 @@ We borrow from all four. The details are in [the product doc](docs/product.md#wh
 
 **Does it need an SDK?** No. It reads what agents and apps already record: transcripts, hooks, OpenTelemetry, your app's own tables and vendor usage APIs.
 
+**Do I have to write `done.yaml`?** No. `dr init` drafts it from your CI, scripts and instruction files, and agents propose journeys as they work. You approve each draft once, and you can still edit the file by hand.
+
 **Does it send my code or transcripts anywhere?** No. Nothing leaves your machine unless you install and turn on an extension that syncs.
 
 **Which agents does it support?** Claude Code (terminal and desktop app) and Codex in version 0. pi and Cursor come next.
@@ -170,7 +179,7 @@ We borrow from all four. The details are in [the product doc](docs/product.md#wh
 
 | Release | Due | What it adds |
 |---|---|---|
-| [R1](https://github.com/windoliver/doneright/milestone/1) | Nov 8, 2026 | Proof of "done" for Claude Code and Codex, the inbox, the local view, browser journeys |
+| [R1](https://github.com/windoliver/doneright/milestone/1) | Nov 8, 2026 | Proof of "done" for Claude Code and Codex, specs drafted for you, the inbox, the local view, browser journeys |
 | [R2](https://github.com/windoliver/doneright/milestone/2) | Dec 6, 2026 | Trustworthy numbers, after-merge mode, pi, npm packages, PR comments and `dr report` |
 | [R3](https://github.com/windoliver/doneright/milestone/3) | Jan 17, 2027 | Receipts, proof caching, tests that must bite, merged to released to checked live |
 | [R4](https://github.com/windoliver/doneright/milestone/4) | Feb 21, 2027 | Guards for whole failure classes, team guards, memory and policy |

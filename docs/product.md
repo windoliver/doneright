@@ -339,7 +339,7 @@ The [core](#a-small-core-and-everything-else-as-an-extension) has six concepts a
 
 ### Define
 
-- **Spec** What must hold, written once. It has a scope (the failure class it covers), an oracle (how truth is checked), an environment (what must be real), a budget (margin, noise floor, minimum runs), protection (who may change it) and a soak (how long to keep checking). _Example: the count on the page equals the count in the email and in history._
+- **Spec** What must hold. The tool drafts it from what the repo already runs, and its owner approves it once. It has a scope (the failure class it covers), an oracle (how truth is checked), an environment (what must be real), a budget (margin, noise floor, minimum runs), protection (who may change it) and a soak (how long to keep checking). _Example: the count on the page equals the count in the email and in history._
 
 - **Check** An executable test of a spec, in the runner you already use. It must show that it can fail. A journey is a check written as a user task with an end state. _Example: a property test over random add, delete and retry sequences, or a checkout journey in a real browser._
 
@@ -535,7 +535,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 ### R1 · Oct 5 – Nov 8
 
-**Prove "done", and see it.** This is where your time comes back first. The core ships here with its first extensions: the Claude Code and Codex adapters, the done gate, the local view and browser journeys. The pi adapter and a clean-machine install follow in R2.
+**Prove "done", and see it.** This is where your time comes back first. The core ships here with its first extensions: the Claude Code and Codex adapters, the done gate with specs drafted for you, the local view and browser journeys. The pi adapter and a clean-machine install follow in R2.
 
 **What you see**
 
@@ -554,7 +554,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 **Done gate**
 
-- Your definition of done, written once from your past asks, runs whenever an agent says done or opens a PR. It reads the issue's acceptance criteria, and the verdict decides whether the PR says "Closes" or "Part of". When the agent wrote a plan, the gate runs the plan's proof steps and compares the diff with it.
+- Your definition of done is drafted from what the repo already runs and what you've asked agents before, and you approve it once. It runs whenever an agent says done or opens a PR. It reads the issue's acceptance criteria, and the verdict decides whether the PR says "Closes" or "Part of". When the agent wrote a plan, the gate runs the plan's proof steps and compares the diff with it.
 - The tool owns the proof and gives a verdict. Open items are tracked, and only taste calls come to you.
 - A policy check answers the questions your instruction files and saved decisions already cover, whether the agent stops with a question, asks one or hits a permission prompt.
 
