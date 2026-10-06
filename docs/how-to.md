@@ -16,12 +16,13 @@
 
 ## Install and remove
 
-Version 0 runs from a checkout of this repo. npm packages come in R2 ([#41](https://github.com/windoliver/doneright/issues/41)).
+Version 0 runs from a checkout of this repo and needs Node 22.19 or newer and Rust. The npm package, with prebuilt binaries, comes in R2 ([#41](https://github.com/windoliver/doneright/issues/41)).
 
 ```bash
 git clone https://github.com/windoliver/doneright && cd doneright
 npm install && npm run build
-./bin/dr init
+npm link     # puts `dr` on your PATH
+dr init
 ```
 
 `dr init` shows the exact hook entries it will add, at user level, for Claude Code and Codex. It merges with hooks you already have, and writes nothing until you say yes.

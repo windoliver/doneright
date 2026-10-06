@@ -20,13 +20,14 @@ Writing code is cheap now. Knowing a change is right is the bottleneck. In a 30-
 
 ## Quick start
 
-Version 0 runs from a checkout. Packages on npm come in R2.
+Version 0 runs from a checkout and needs Node 22.19 or newer and Rust. The npm package, with prebuilt binaries, comes in R2.
 
 ```bash
 git clone https://github.com/windoliver/doneright && cd doneright
 npm install && npm run build
-./bin/dr init      # shows the exact hooks it will add for Claude Code and Codex; writes nothing until you say yes
-./bin/dr doctor    # checks the hooks, ports, disk and sign-ins
+npm link     # puts `dr` on your PATH
+dr init      # shows the exact hooks it will add for Claude Code and Codex; writes nothing until you say yes
+dr doctor    # checks the hooks, ports, disk and sign-ins
 ```
 
 Then tell DoneRight what "done" means in your project, in `.doneright/done.yaml`:
