@@ -75,7 +75,7 @@ export default function (dr) {
 
 ### First-party extensions
 
-- **Agent adapters:** Claude Code, Codex and pi, then Cursor.
+- **Agent adapters:** Claude Code and Codex first, then pi and Cursor.
 - **Done gate** and **local view**, on by default.
 - **E2E proof:** journeys, the feature map and environments.
 - **Policy and memory:** resolvers and the keep-or-remove list.
@@ -535,13 +535,13 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 ### R1 · Oct 5 – Nov 8
 
-**Prove "done", and see it.** This is where your time comes back first. The core ships here with its first extensions: the Claude Code, Codex and pi adapters, the done gate, the local view and browser journeys.
+**Prove "done", and see it.** This is where your time comes back first. The core ships here with its first extensions: the Claude Code and Codex adapters, the done gate, the local view and browser journeys. The pi adapter and a clean-machine install follow in R2.
 
 **What you see**
 
 - A terminal view for numbers and follow-ups: `dr status`, `dr inbox`, `dr show`.
 - A local web view, `dr view`, for screenshots side by side, one-click answers to taste calls, open items and charts. No hosting.
-- A PR comment with the verdict and screenshots, and `dr report`, one HTML file per change that opens offline. Each verdict is also a GitHub commit status that branch protection can require.
+- Each verdict is a GitHub commit status that branch protection can require. A PR comment with screenshots and `dr report`, one HTML file per change, follow in R2.
 - `dr status` lists each running agent as working, waiting on a lease, waiting on you, or stuck. Every change, verdict and open item has a three-line plain summary.
 
 **Your time**
@@ -594,6 +594,12 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 - A reading is checked for freshness, cost basis and a second source before any cap, rollback or optimizer acts on it.
 - A meter auditor cross-checks every meter you rely on. Any automation can call the same check and get OK, STALE, DISAGREES or WRONG BASIS back.
 - Destructive actions get a preview of who's affected, from two sources, and a dry run first.
+
+**More agents and reach**
+
+- The pi adapter, then Cursor.
+- A clean install through npm with prebuilt binaries and a Claude Code plugin.
+- A PR comment with the verdict and screenshots, and `dr report`, one HTML file per change.
 
 **Infra cost**
 
@@ -865,7 +871,7 @@ The release details are in the [roadmap](#proof-of-done-first-then-everything-el
 | Hosted app | Not in v1. Terminal, local view and report files first. The team server is the same app plus a push-only sync, content-free by default: self-hosted with Docker, or on Cloudflare for a small team, and in the customer's own cloud for an enterprise. Only after Decision 2. | Decision 2 |
 | FinOps scope | Infra cost for the vendors you use in R2 and R3. Billing emails, every other vendor and commitments come after Decision 2. | R2 |
 | License | Apache-2.0; decide later whether a paid enterprise or team version is worth building | R1 |
-| First agents | Claude Code, Codex and pi, then Cursor | R1 |
+| First agents | Claude Code and Codex in R1; pi and Cursor in R2 | R1 |
 | Policy limits | Policy answers only reversible, in-scope questions on its own. Anything irreversible, paid or outward-facing still asks you unless an explicit rule covers it. | R1 |
 | Gate mode | Before merge by default. For teams that push to main all day, after merge, with "done" judged at release. | R2 |
 | Live test budget | A monthly cap per real resource that you set. Live journeys run only when asked or before a release. | R1 |

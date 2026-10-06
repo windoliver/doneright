@@ -9,13 +9,13 @@ The product, its reasoning and the roadmap are in the [product doc](./product.md
 ### In version 0
 
 - **The core:** the record, gates, asks and the adapter contract.
-- **Adapters:** Claude Code (terminal and desktop app), Codex and pi.
+- **Adapters:** Claude Code (terminal and desktop app) and Codex. pi follows in R2.
 - **Done gate:** runs when an agent says it's done. Checks come from the repo's `.doneright/` specs, the issue's acceptance criteria and the agent's plan.
 - **Checks:** shell commands and browser journeys with Playwright.
 - **Asks:** the inbox, a resolver that reuses your saved decisions, and delivery back into sessions.
 - **Surfaces:** the CLI, the local view and the MCP tools.
 - **Readings:** your time and agent spend from transcripts, plus lifecycle numbers from git and GitHub, enough to judge Decision 1.
-- **Verdicts on GitHub:** a commit status that branch protection can require, a PR comment, and `dr report`, one HTML file per change.
+- **Verdicts on GitHub:** a commit status that branch protection can require. The PR comment and `dr report` follow in R2.
 - **Environment:** `dr env up` with leases on ports, test accounts, phone numbers, simulators and screens, each with a cap and a cooldown. Processes are tracked by PID.
 - **Trust:** a transcript archive before agents delete old sessions, a doctor, and check health.
 
@@ -27,6 +27,7 @@ The product, its reasoning and the roadmap are in the [product doc](./product.md
 - CI policies, receipts in a signed attestation format, and exports beyond GitHub: the status line, the weekly brief and OpenTelemetry.
 - Phone, text-message, desktop and chat-app journeys with leased real accounts.
 - Agent spend caps, leased remote test machines, and the feature map that keeps itself current.
+- In R2: the pi package, npm packaging with prebuilt binaries and the Claude Code plugin, the PR comment and `dr report`, and the OTLP receiver.
 - The Cursor adapter, the team server and the enterprise preset.
 
 ## One hub per user, a tiny hook client, and extensions in-process
@@ -237,7 +238,7 @@ dr-hook first checks the fast rules in `rules.json`, such as no kills by name an
 |---|---|---|---|---|
 | Claude Code | SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, Stop and SessionEnd. They ship as a Claude Code plugin at user scope, together with the MCP server and a short skill. Commits made in the session are recorded from the hooks. | A Stop hold returns `decision: block` with the answer. A background `asyncRewake` waiter exits with code 2 to wake an idle session. UserPromptSubmit and SessionStart add context as a fallback. | `transcript_path` from each hook, which can lag the live turn. The archive copies files before the 30-day cleanup. | Waking from the desktop app is untested. A waiter can outlive a headless session, so it watches its parent process. UserPromptSubmit hooks get 30 seconds. |
 | Codex | The same events, in `~/.codex/hooks.json` | A Stop hold becomes the next prompt. Background hooks never start a turn, so an idle session hears back only on your next message. Sessions `dr` starts through app-server can get answers right away. | `transcript_path`, which Codex says isn't a stable format, so the adapter reads hook payloads first | Hooks you add yourself need a one-time trust approval in Codex's `/hooks`. Interrupt hooks get 1 to 3 seconds. |
-| pi | A pi package in-process: session and tool events, plus native tools | `pi.sendUserMessage` starts a turn when the session is idle, and steers in or queues a follow-up when it's busy | JSONL files under `~/.pi/agent/sessions/`, grouped by working directory | The package runs inside pi, so it follows pi's own trust rules |
+| pi (R2) | A pi package in-process: session and tool events, plus native tools | `pi.sendUserMessage` starts a turn when the session is idle, and steers in or queues a follow-up when it's busy | JSONL files under `~/.pi/agent/sessions/`, grouped by working directory | The package runs inside pi, so it follows pi's own trust rules |
 | Cursor (R2) | `hooks.json`: sessionStart, preToolUse, postToolUse, stop | A stop hold with `followup_message`, with `loop_limit` raised from its default of 5 | Hook payloads | No route to wake an idle local chat |
 
 ## First-party extensions that ship on by default
@@ -252,7 +253,7 @@ dr-hook first checks the fast rules in `rules.json`, such as no kills by name an
 | view | The local view panels: Inbox, Live, Changes, Decided for you, Numbers and Guards. |
 | archive | Copies Claude Code, Codex and pi transcripts into `~/.doneright/archive/` before each agent's cleanup deletes them, redacted the same way as ingestion. |
 | readings | Your time and agent spend from transcripts: "is it done?" asks, rework, review wait, blocked time, failed calls by error signature, and tokens and cost. Lifecycle numbers from git and GitHub: time from issue to merge, first-pass merges and time to first review. |
-| github | Posts each verdict as a commit status that branch protection can require, the way gh-signoff does local CI. It adds a PR comment with the verdict and open items, and writes `dr report`, one self-contained HTML file per change. |
+| github | Posts each verdict as a commit status that branch protection can require, the way gh-signoff does local CI. In R2 it adds a PR comment with the verdict and open items, and `dr report`, one self-contained HTML file per change. |
 
 ```
 # .doneright/done.yaml — protected; agents propose changes as asks
@@ -299,7 +300,7 @@ environment:
 
 ## How it installs
 
-- **One npm package,** `doneright`, with the `dr` command. dr-hook ships as per-platform optional packages, the way esbuild and Biome ship their binaries. It needs Node 22.19 or newer, the same as pi.
+- **Version 0 runs from the checkout** on the maintainer's machine. In R2 it becomes **one npm package,** `doneright`, with the `dr` command. dr-hook ships as per-platform optional packages, the way esbuild and Biome ship their binaries. It needs Node 22.19 or newer, the same as pi.
 - **`dr init`** installs through each agent's own mechanism: a Claude Code plugin, a pi package, entries in Codex's `hooks.json`, and later a Cursor plugin. It merges with hooks you already have, shows the exact diff, and writes only after you say yes. For Codex, it reminds you to approve the hooks once in `/hooks`. `dr init --undo` removes everything it added.
 - **The repo** has `packages/` for the core, hub, CLI, view, MCP server, contracts, the first-party extensions and the adapters, and `crates/dr-hook` for the hook client.
 - **Libraries:** better-sqlite3 behind a small storage interface, Ajv with JSON Schemas as the source of every contract and generated TypeScript types, Vitest, Playwright and Preact. `node:sqlite` still prints an "experimental" warning on Node 23.9, so it waits.
@@ -330,7 +331,7 @@ Exit: an answer typed in the CLI reaches an idle Claude Code session, and a repe
 
 ### Oct 19–25
 
-**Gates and verdicts.** Hermetic command checks, the verdict rules, run counts, known failures, verdicts pinned to commits, the base-commit run in a temporary worktree, check health, fast and slow lanes, and the done gate reading `.doneright/done.yaml` and the issue's acceptance criteria. Verdicts post as GitHub commit statuses and PR comments.
+**Gates and verdicts.** Hermetic command checks, the verdict rules, run counts, known failures, verdicts pinned to commits, the base-commit run in a temporary worktree, check health, fast and slow lanes, and the done gate reading `.doneright/done.yaml` and the issue's acceptance criteria. Verdicts post as GitHub commit statuses.
 
 Exit: the done gate blocks a false "done" on a seeded bug and passes the real fix. `dr` starts gating its own repo.
 
@@ -342,9 +343,9 @@ Exit: a journey's video and screenshots show up in the view, and a taste call is
 
 ### Nov 2–8
 
-**More agents and shipping.** The Codex adapter with its trust step, the pi package, the doctor, the transcript archive, `dr debug bundle`, npm packaging with prebuilt dr-hook binaries, the Claude Code plugin, and a clean-machine install. The OTLP receiver comes if there's time.
+**Codex and dogfooding.** The Codex adapter with its trust step, then a week of real use across Claude Code and Codex sessions, run from the checkout. The pi package, npm packaging, the Claude Code plugin, the PR comment, `dr report` and the OTLP receiver move to R2.
 
-Exit: installed with `npx` on a clean machine and used for a week. Decision 1 compares "is it done?" follow-ups and asks per merged change against the pilot baseline.
+Exit: used for a week across Claude Code and Codex on the maintainer's machine. Decision 1 compares "is it done?" follow-ups and asks per merged change against the pilot baseline.
 
 ## What each project we studied changed in this design
 
