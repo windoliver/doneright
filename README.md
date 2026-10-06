@@ -40,6 +40,7 @@ An item reaches you only for **taste** (a judgment only you can make), **authori
 
 - [Product](docs/product.md): the problem, the product, what it solves, the roadmap and the decisions.
 - [Technical design](docs/technical-design.md): architecture, data model, interfaces, security and the build plan for version 0.
+- [Build plan](docs/plan.md): every task, its epic and what it waits on, as a dependency map.
 
 ## Layout (planned)
 
