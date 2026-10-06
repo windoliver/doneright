@@ -135,6 +135,7 @@ Prove and Decide are the core. Measure and Keep are first-party extensions, on b
 | Claude Code | At its next tool call (PostToolUse hook) | The Stop hook holds the turn until you answer, then the agent continues with your answer | A background waiter wakes the session when your answer arrives. The Stop hook arms one at every stop (`asyncRewake`), and a background `dr wait` the agent started works the same way | Next session in that worktree (SessionStart hook) |
 | Codex | At its next tool call (PostToolUse hook) | The Stop hook holds the turn (600 s by default, can be raised), then your answer becomes the next prompt | Neither a background hook nor a finished background command can start a turn, so on your next message (UserPromptSubmit hook). In sessions `dr` starts through app-server: right away | Next session (SessionStart hook) |
 | Cursor | At its next tool call (postToolUse hook) | The stop hook holds, then sends your answer as a follow-up message (5 per chat by default, can be raised) | Local chats: on your next message. Cloud agents: right away, through the Cloud Agents API | Next session (sessionStart hook) |
+| Any other agent, local or in the cloud | Without an adapter, nothing reaches the session: no hold and no delivery. Its PR is still checked: DoneRight runs the done gate on the PR's commit in a temporary worktree and posts the verdict. An adapter, in any language over JSON-RPC, adds the rest when the agent has hooks. | — |  |  |
 | pi | Right away, steered in after its current tool calls | Right away, queued for when it finishes | Right away: the extension starts a new turn (`pi.sendUserMessage`) | Next session (`session_start` event) |
 
 The hook-started waiter is the backstop for when the agent forgets. Holding costs nothing, but the session looks busy until you answer or the hold times out, so `dr` holds only when the agent left a question for you. A question in the middle of a task works the same way: the agent calls `dr ask` and waits on the call. Each waiter exits with its session and claims an answer only once, and `dr` confirms delivery from the transcript. Claude Code can also wake on a timer (session crons), but every tick is a full model turn, so `dr` doesn't use them. In Codex, a wait the agent runs in the foreground can turn into repeated polling that burns tokens. Nothing here needs a startup flag. Claude Code's channels do, and they don't run in the desktop app. Answers enter the agent as instructions, so the hub accepts them only from your terminal and local view.
@@ -242,14 +243,13 @@ $ dr inbox
 
 The mocks and numbers are illustrative. The same evidence also appears in the PR comment (verdict plus screenshots), the status line and the Monday brief.
 
-**What `dr view` shows.** Only the inbox ever pushes. The rest is there whenever you open it:
+**What `dr view` shows.** You open it with three questions: does anything need me, is the work done, and what did it cost. So it has three views, in that order. Only the first ever pushes, and nothing is taken away by keeping the rest quiet: every detail is one click deeper.
 
-- **Inbox:** the asks that need you, batched, with screenshots side by side.
-- **Live:** every running session and what it's doing: working, waiting on a lease, waiting on you, or stuck.
-- **Changes:** each change's timeline from claim to checks, verdict, merge, release and the live check, with its screenshots, video and logs.
-- **Decided for you:** every question a resolver answered and every fix applied without you, each with a one-click overrule.
-- **Numbers:** readings with their check badges. Extensions add panels, such as Money and the infra map.
-- **Guards:** what fired, what was wrong, and what's waiting to move from warning to blocking.
+- **Needs you:** each ask as one question, the one piece of evidence that answers it, and two buttons. Below it, what's coming in your next batch, and everything decided for you, each with a one-click overrule.
+- **Work:** every session and change on one line, led by a plain sentence such as "Not done: the receipt shows $18.00". Open one for its failing and running checks. Passed checks fold into one line, and the screenshots, video, receipt and a highlight of what was checked are one click deeper. The repo's spec is here too.
+- **Numbers:** readings outside their band, or that changed, come first; the rest fold into one line. Money, the infra map and the guards that fired are sections here, and extensions add their own.
+
+One count, the things that need you, reads the same everywhere: the view's title, the status line and the first line of `dr status`. Color means status and nothing else: the five verdicts and "needs you". Highlights never cover a screenshot: what each check looked at is marked in a strip beside it.
 
 **Where it runs.** Every surface reads one data model: the ledger in a local SQLite file and the evidence folder beside it. Our own views show only what no other tool shows: the inbox, verdicts with their evidence, and receipts. Long-term charts go to the tools you already use.
 
@@ -456,6 +456,17 @@ soak: 28d
     "specs": ["count-agreement@3", "page-task-speed@2"],
     "proof": { "fails_before": "a1b2c3d", "passes_after": "4e1c9ab",
                "runs": 30, "failure_rate_bound_95": 0.10 },
+    "checks": [{ "name": "journey:read-page@2", "runs": 30, "clean": 30,
+                 "known_failures": [],
+                 "end_state": [{ "assert": "summary matches the page",
+                                 "selector": "#summary", "box": [24, 310, 612, 96],
+                                 "pass": true }] }],
+    "evidence": [
+      { "sha256": "91d2…", "type": "screenshot", "check": "journey:read-page@2",
+        "step": "end state", "run": 1 },
+      { "sha256": "c4e8…", "type": "screenshot", "derived_from": "91d2…",
+        "made": "highlight, on request" },
+      { "sha256": "77ab…", "type": "video", "check": "journey:read-page@2", "run": 1 } ],
     "readings": { "p95_s": [22.0, 8.1], "success": [0.94, 0.95],
                   "usd_per_task": [0.031, 0.019] },
     "environment": { "parity": "match", "fingerprint": "model+sdk+lockfile+agent-config" },
@@ -463,6 +474,8 @@ soak: 28d
   }
 }
 ```
+
+Every screenshot, video and trace is listed by hash, with the check, step and run it came from, so changing any of them breaks verification. A highlighted copy, made on request, points back to its original.
 
 ### Verdict names
 

@@ -189,7 +189,7 @@ flowchart TD
 | #32 | Done gate: specs, issue criteria, plan proof, open items and project trust | R1 | #3 | #22, #25, #29, #31 |
 | #33 | End-to-end: block a false done, pass the real fix, gate this repo | R1 | #3 | #32, #48 |
 | #34 | HTTP API and live stream for the local view | R1 | #4 | #16, #22, #28 |
-| #35 | Local view: Inbox, Live, Changes and Decided for you | R1 | #4 | #34, #45 |
+| #35 | Local view: Needs you, Work and Numbers | R1 | #4 | #34, #45 |
 | #36 | Environment: dr env up with leased ports and PID tracking | R1 | #4 | #16, #44 |
 | #37 | Journeys: Playwright, end-state checks, evidence and a feature list | R1 | #4 | #15, #29, #36, #31 |
 | #38 | End-to-end: journey evidence in the view, taste call answered there | R1 | #4 | #25, #35, #37, #48 |
