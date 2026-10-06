@@ -1,6 +1,6 @@
 # Contributing
 
-Flight Recorder is in its design phase. The [issues](https://github.com/windoliver/flight-recorder/issues) are the plan: each epic is a release step, and each task lists its acceptance criteria, the proof it needs, and what it depends on.
+DoneRight is in its design phase. The [issues](https://github.com/windoliver/doneright/issues) are the plan: each epic is a release step, and each task lists its acceptance criteria, the proof it needs, and what it depends on.
 
 ## Where work goes
 

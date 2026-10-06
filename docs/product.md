@@ -1,10 +1,10 @@
 # Measure and prove every change
 
-> Writing code is cheap now. Knowing a change is right, and what it cost, is the bottleneck. Flight Recorder measures every call, feature and change in money, speed, your time and quality. It proves each change held before you have to ask, with evidence the tool makes itself, honest verdicts, and receipts tied to the exact build that ships. Agents do the work and people make the taste calls. It starts as an open-source tool for small teams that you run and view on your own machine, beginning with proof of "done". Infra cost for the vendors you use arrives early. Full cross-vendor FinOps and a hosted team version come later, if it earns them. An enterprise profile covers large organizations. The core is small: a record, gates, asks and agent adapters. Everything else ships as extensions you can turn off, replace or write yourself.
+> Writing code is cheap now. Knowing a change is right, and what it cost, is the bottleneck. DoneRight measures every call, feature and change in money, speed, your time and quality. It proves each change held before you have to ask, with evidence the tool makes itself, honest verdicts, and receipts tied to the exact build that ships. Agents do the work and people make the taste calls. It starts as an open-source tool for small teams that you run and view on your own machine, beginning with proof of "done". Infra cost for the vendors you use arrives early. Full cross-vendor FinOps and a hosted team version come later, if it earns them. An enterprise profile covers large organizations. The core is small: a record, gates, asks and agent adapters. Everything else ships as extensions you can turn off, replace or write yourself.
 
 **Agents do the work.** **The tool owns the evidence.** **People make the calls.**
 
-How version 0 is built is in the [technical design](./technical-design.md).
+How version 0 is built is in the [technical design](./technical-design.md). The repo, with the build plan as issues, is [windoliver/doneright](https://github.com/windoliver/doneright).
 
 ## What teams building with agents keep paying for
 
@@ -46,7 +46,7 @@ From first principles the product has one job: turn an agent's claim into a verd
 
 No extension can break these. The other rules in the framework are defaults of the extensions that need them.
 
-**Only where you're needed.** An item reaches you for one of four reasons. Everything else is handled without you. Nothing else is pushed, but the whole record stays visible in `fr view` whenever you look.
+**Only where you're needed.** An item reaches you for one of four reasons. Everything else is handled without you. Nothing else is pushed, but the whole record stays visible in `dr view` whenever you look.
 
 | Reaches you | Never reaches you |
 |---|---|
@@ -61,15 +61,15 @@ Asks are batched and interruptions have a daily cap. Only an ask that is holding
 
 ```
 // an extension is a module the core loads, the way pi loads its extensions
-export default function (fr) {
-  fr.on("agent.stop", checkTheClaim)            // also session.start, tool.before, tool.after,
+export default function (dr) {
+  dr.on("agent.stop", checkTheClaim)            // also session.start, tool.before, tool.after,
                                                 // pr.opened, merged, released, schedule
-  fr.registerCheck("journey", runJourney)       // command, journey, property, eval …
-  fr.registerResolver(answerFromDecisions)      // tries an ask before a person sees it
-  fr.registerSource("transcripts", readSessions)  // turns outside data into events
-  fr.registerEnvironment("stack", bringUpStack) // what checks need, with leases
-  fr.registerView("side-by-side", renderShots)  // panels, PR comments, reports, exports
-  fr.registerAdapter("codex", codexHooks)       // hook points and answer delivery
+  dr.registerCheck("journey", runJourney)       // command, journey, property, eval …
+  dr.registerResolver(answerFromDecisions)      // tries an ask before a person sees it
+  dr.registerSource("transcripts", readSessions)  // turns outside data into events
+  dr.registerEnvironment("stack", bringUpStack) // what checks need, with leases
+  dr.registerView("side-by-side", renderShots)  // panels, PR comments, reports, exports
+  dr.registerAdapter("codex", codexHooks)       // hook points and answer delivery
 }
 ```
 
@@ -92,7 +92,7 @@ export default function (fr) {
 - Open formats ship as contracts with conformance tests, the way pi publishes its telemetry contracts, so other tools can prove they're compatible.
 - Outside PRs to the core are closed automatically and reviewed in a daily batch, as pi does. Outside work goes into extensions.
 
-**What we removed.** Fourteen concepts became six, and ten rules became four core invariants plus extension defaults. Profiles became presets, which are lists of extensions with settings. Pushed dashboards and alerts are gone, while `fr view` still shows the whole record when you look. The enterprise track is a preset plus adapters, not a separate product. Each agent's delivery routes moved into its adapter.
+**What we removed.** Fourteen concepts became six, and ten rules became four core invariants plus extension defaults. Profiles became presets, which are lists of extensions with settings. Pushed dashboards and alerts are gone, while `dr view` still shows the whole record when you look. The enterprise track is a preset plus adapters, not a separate product. Each agent's delivery routes moved into its adapter.
 
 ## Measure, prove, keep, and let people decide
 
@@ -128,20 +128,20 @@ Prove and Decide are the core. Measure and Keep are first-party extensions, on b
 | MCP tools | Start the environment, run the proof, add an open item, ask a person a taste call, check a guard |
 | Live channel | Every session registers with the local hub under its session ID and worktree. An agent's question appears in your inbox the moment it's asked. Each answer shows whether it's still waiting or was delivered, and by which route. The table below shows how fast it gets back to each agent. |
 
-**How your answer gets back to the session.** No agent has a timer event for hooks, so a waiter starts when the turn ends. The Stop hook starts one every time, and the agent can also start one with `fr wait` when it thinks it's done. The waiter holds one connection to the hub and returns the moment you answer.
+**How your answer gets back to the session.** No agent has a timer event for hooks, so a waiter starts when the turn ends. The Stop hook starts one every time, and the agent can also start one with `dr wait` when it thinks it's done. The waiter holds one connection to the hub and returns the moment you answer.
 
 | Agent | Working | Stops with a question for you | Idle | Ended |
 |---|---|---|---|---|
-| Claude Code | At its next tool call (PostToolUse hook) | The Stop hook holds the turn until you answer, then the agent continues with your answer | A background waiter wakes the session when your answer arrives. The Stop hook arms one at every stop (`asyncRewake`), and a background `fr wait` the agent started works the same way | Next session in that worktree (SessionStart hook) |
-| Codex | At its next tool call (PostToolUse hook) | The Stop hook holds the turn (600 s by default, can be raised), then your answer becomes the next prompt | Neither a background hook nor a finished background command can start a turn, so on your next message (UserPromptSubmit hook). In sessions `fr` starts through app-server: right away | Next session (SessionStart hook) |
+| Claude Code | At its next tool call (PostToolUse hook) | The Stop hook holds the turn until you answer, then the agent continues with your answer | A background waiter wakes the session when your answer arrives. The Stop hook arms one at every stop (`asyncRewake`), and a background `dr wait` the agent started works the same way | Next session in that worktree (SessionStart hook) |
+| Codex | At its next tool call (PostToolUse hook) | The Stop hook holds the turn (600 s by default, can be raised), then your answer becomes the next prompt | Neither a background hook nor a finished background command can start a turn, so on your next message (UserPromptSubmit hook). In sessions `dr` starts through app-server: right away | Next session (SessionStart hook) |
 | Cursor | At its next tool call (postToolUse hook) | The stop hook holds, then sends your answer as a follow-up message (5 per chat by default, can be raised) | Local chats: on your next message. Cloud agents: right away, through the Cloud Agents API | Next session (sessionStart hook) |
 | pi | Right away, steered in after its current tool calls | Right away, queued for when it finishes | Right away: the extension starts a new turn (`pi.sendUserMessage`) | Next session (`session_start` event) |
 
-The hook-started waiter is the backstop for when the agent forgets. Holding costs nothing, but the session looks busy until you answer or the hold times out, so `fr` holds only when the agent left a question for you. A question in the middle of a task works the same way: the agent calls `fr ask` and waits on the call. Each waiter exits with its session and claims an answer only once, and `fr` confirms delivery from the transcript. Claude Code can also wake on a timer (session crons), but every tick is a full model turn, so `fr` doesn't use them. In Codex, a wait the agent runs in the foreground can turn into repeated polling that burns tokens. Nothing here needs a startup flag. Claude Code's channels do, and they don't run in the desktop app. Answers enter the agent as instructions, so the hub accepts them only from your terminal and local view.
+The hook-started waiter is the backstop for when the agent forgets. Holding costs nothing, but the session looks busy until you answer or the hold times out, so `dr` holds only when the agent left a question for you. A question in the middle of a task works the same way: the agent calls `dr ask` and waits on the call. Each waiter exits with its session and claims an answer only once, and `dr` confirms delivery from the transcript. Claude Code can also wake on a timer (session crons), but every tick is a full model turn, so `dr` doesn't use them. In Codex, a wait the agent runs in the foreground can turn into repeated polling that burns tokens. Nothing here needs a startup flag. Claude Code's channels do, and they don't run in the desktop app. Answers enter the agent as instructions, so the hub accepts them only from your terminal and local view.
 
 Tested October 4, 2026 on Claude Code 2.1.289, headless: a held stop continued the agent with the answer. An idle session woke 1.4 seconds after the answer reached the hook's waiter, and 2.5 seconds after it reached a background waiter the agent had started. Not yet tested: the Claude desktop app, Codex and Cursor. Sources: Claude Code [hooks](https://code.claude.com/docs/en/hooks) (background hooks, `asyncRewake`) and [channels](https://code.claude.com/docs/en/channels); Codex [hooks](https://developers.openai.com/codex/hooks) (background hooks don't start a turn) and [app-server](https://developers.openai.com/codex/app-server); [openai/codex#47193](https://github.com/openai/codex/issues/47193), [#32188](https://github.com/openai/codex/issues/32188) (background completion doesn't wake) and [#38495](https://github.com/openai/codex/issues/38495) (polling cost); Cursor [hooks](https://cursor.com/docs/hooks) (`followup_message`, `loop_limit`); pi [sendUserMessage example](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/send-user-message.ts).
 
-**Memory: learn from every agent's, keep none of its own.** Each agent already keeps memory, and each keeps it alone. Claude Code writes notes per repository and loads the first 200 lines of their index. Codex summarizes past sessions and loads only 2,500 tokens of that summary. pi and Cursor read instruction files only. None sees the others' notes, and none enforces them. `fr` reads all of them, plus the transcripts, and turns each lesson into one of three things:
+**Memory: learn from every agent's, keep none of its own.** Each agent already keeps memory, and each keeps it alone. Claude Code writes notes per repository and loads the first 200 lines of their index. Codex summarizes past sessions and loads only 2,500 tokens of that summary. pi and Cursor read instruction files only. None sees the others' notes, and none enforces them. `dr` reads all of them, plus the transcripts, and turns each lesson into one of three things:
 
 - **A guard**, when the lesson can be checked, such as "never kill processes by name".
 - **A rule**, written once into every agent's instruction file, so all agents read the same text.
@@ -151,7 +151,7 @@ A repeated mistake is fixed at the highest level that works. The order is the co
 
 You don't read memory files. The inbox shows a short ranked list, and you answer keep or remove. Lessons that keep recurring or keep being broken come first, weighted by the hours or dollars they cost. Next come memories that disagree between agents, then facts about code that no longer exists. Each answer is saved as a decision, so an item never comes back, and unused items expire on their own.
 
-**Policy: agents stop asking what you've already answered.** Agents stop to confirm even when every permission is granted, because their own instructions tell them to. In the pilot's last 30 days, agents stopped with a question 681 times, 94% of them with every permission already granted. About one reply in five was a standing answer: a plain "yes", "your call", "fix all of them" or "create PR". `fr` checks policy wherever an agent can stop to ask:
+**Policy: agents stop asking what you've already answered.** Agents stop to confirm even when every permission is granted, because their own instructions tell them to. In the pilot's last 30 days, agents stopped with a question 681 times, 94% of them with every permission already granted. About one reply in five was a standing answer: a plain "yes", "your call", "fix all of them" or "create PR". `dr` checks policy wherever an agent can stop to ask:
 
 - **It ends its turn with a question.** The Stop hook reads the question.
 - **It calls its ask tool.** A hook can answer it, which Claude Code supports for its question tool.
@@ -159,7 +159,7 @@ You don't read memory files. The inbox shows a short ranked list, and you answer
 
 Policy is your instruction files, your saved decisions and your guards. When it covers the question, the hook answers and the agent goes on. When a rule forbids it, the hook names the rule and what to do instead. Taste calls, spending, anything irreversible or outward-facing, and first-time questions still come to you. An answer you keep giving the same way is proposed as policy in the keep-or-remove list, for example "open the PR once the done gate passes". Policy can never allow more than the permission mode and guards do, and every answer it gives is logged.
 
-**Repeated errors fix themselves.** Every failed tool call is recorded by its error signature, like blocked time. In the pilot, 149 signatures came back in three or more sessions and made up 53% of 3,613 failed calls. Most had a known fix that each new session had to rediscover: commands too complex for the worktree check, waiting with `sleep` where the harness wants a watcher, macOS `sed` and zsh glob syntax, and `cd` into a folder that isn't there. When a signature comes back, `fr` acts in this order:
+**Repeated errors fix themselves.** Every failed tool call is recorded by its error signature, like blocked time. In the pilot, 149 signatures came back in three or more sessions and made up 53% of 3,613 failed calls. Most had a known fix that each new session had to rediscover: commands too complex for the worktree check, waiting with `sleep` where the harness wants a watcher, macOS `sed` and zsh glob syntax, and `cd` into a folder that isn't there. When a signature comes back, `dr` acts in this order:
 
 - **A known fix, before the error.** A hook rewrites or stops the command with the fix, or the session starts already knowing it.
 - **A fix at the root**, as a change with proof: the check fails before and passes after, and a guard keeps it fixed.
@@ -195,7 +195,7 @@ Agents are weak test engineers, and rules in an instruction file don't fix that 
 |---|---|
 | Journeys | A journey is a user task in plain words plus the end state to check. An agent drives it the way a user would, in a browser, a desktop app, a phone call, a text message or an API, on a real stack. It checks the end state, never a label or a receipt, and keeps video, screenshots and recordings in the ledger. Once a journey passes, it's saved as a script that replays cheaply. The agent drives it again only when the script breaks, and it can't change the end-state check. |
 | Feature map | Journeys start from a map of the app's user-facing features, built from its routes, commands and menus. A periodic pass reads each feature's code and drives every feature live. Drift in the map gets fixed and a gap in the driver gets fixed, but a feature that no longer works is reported as a regression, never written out of the map. Features with no journey are a reading. |
-| A test plan the tool checks | Before writing tests, the agent writes a five-line plan: journeys, end state, environment, what isn't covered, and cost. `fr` checks it: real services on the path being claimed, end-state checks, a test that can fail before the fix, and a cost within budget. You see the plan only when it involves taste or money. |
+| A test plan the tool checks | Before writing tests, the agent writes a five-line plan: journeys, end state, environment, what isn't covered, and cost. `dr` checks it: real services on the path being claimed, end-state checks, a test that can fail before the fix, and a cost within budget. You see the plan only when it involves taste or money. |
 | Environment manifest | One file per repo lists the services, production-shaped seed data, health checks, teardown and cost, and which external services are real, a provider's sandbox or recorded in each lane. Test accounts, phone numbers, simulators and screens are leased to one session at a time, like ports. Each real resource has a cap, a cooldown and a cost estimate before every run. The proof records the environment it ran in, and a pass anywhere else doesn't count. |
 | Stand-in detection | A test that still passes with its real dependency switched off is checking a stand-in. It can't prove anything a user would notice. |
 | The claim sets the lane | Static checks, then unit, integration on real parts, a local journey, a live journey with real accounts (paid, budgeted and run only when asked), and production monitoring. "No visible change" needs a journey diff against the merge base. "Users can pay" needs a live journey. Results are cached per build and environment, so the costly lane runs once. |
@@ -226,23 +226,23 @@ The ledger is for agents, but people need a place to look. Start with no hosting
 ### Terminal
 
 ```
-$ fr status
+$ dr status
 this week   rework 6.5 h ↓   "is it done?" 41 ↓   blocked 3.2 h (sign-in)
 verdicts    PASS 37  FAIL 4  INCONCLUSIVE 2  BLOCKED 1
 waiting on you: 3 taste calls · 2 open items · 1 guard promotion
 
-$ fr inbox
-1  taste    checkout button moved 8px left        → fr view 1
+$ dr inbox
+1  taste    checkout button moved 8px left        → dr view 1
 2  open     payment email never tested live        needs a run · $0.40
 3  open     async mode untested                    gap · accept or file
 4  guard    no-full-screenshot-reads: warn → block needs your OK
 ```
 
-### Local view (`fr view`)
+### Local view (`dr view`)
 
 The mocks and numbers are illustrative. The same evidence also appears in the PR comment (verdict plus screenshots), the status line and the Monday brief.
 
-**What `fr view` shows.** Only the inbox ever pushes. The rest is there whenever you open it:
+**What `dr view` shows.** Only the inbox ever pushes. The rest is there whenever you open it:
 
 - **Inbox:** the asks that need you, batched, with screenshots side by side.
 - **Live:** every running session and what it's doing: working, waiting on a lease, waiting on you, or stuck.
@@ -255,9 +255,9 @@ The mocks and numbers are illustrative. The same evidence also appears in the PR
 
 | Surface | How it's built and hosted | Who sees it |
 |---|---|---|
-| Terminal | `fr status`, `fr inbox` and `fr show`, from the same CLI. Agents read the same data over MCP. | You and your agents |
-| Local view | `fr view` serves a static web app and a small API from the CLI itself, on 127.0.0.1 only, with a new token each launch, because answers given there reach agents as instructions. It reads the ledger and evidence directly, with no account and no Docker. From your phone, reach it over a private network such as Tailscale, never a public tunnel. | You |
-| Report file | `fr report` writes one self-contained HTML file for a change, with the verdict, screenshots, video and receipt. It opens offline and attaches to a PR or a CI run, the way Playwright's test report does. | Anyone you send it to |
+| Terminal | `dr status`, `dr inbox` and `dr show`, from the same CLI. Agents read the same data over MCP. | You and your agents |
+| Local view | `dr view` serves a static web app and a small API from the CLI itself, on 127.0.0.1 only, with a new token each launch, because answers given there reach agents as instructions. It reads the ledger and evidence directly, with no account and no Docker. From your phone, reach it over a private network such as Tailscale, never a public tunnel. | You |
+| Report file | `dr report` writes one self-contained HTML file for a change, with the verdict, screenshots, video and receipt. It opens offline and attaches to a PR or a CI run, the way Playwright's test report does. | Anyone you send it to |
 | Where you already look | A PR comment and check run, the agent's status line, the Monday brief, and readings exported as OpenTelemetry metrics so Grafana or PostHog can chart trends. | Your team |
 | Team server, later | The same web app in team mode. Each machine pushes its ledger events, content-free by default, with evidence only for projects that opt in. It ships as one Docker image with Postgres and S3-compatible storage behind your sign-in, or as Workers, D1 and R2 behind Cloudflare Access for a small team. Enterprises run it in their own cloud. | Your team, after Decision 2 |
 
@@ -301,7 +301,7 @@ The full discovery runs once. After that, three triggers re-map only the part th
 - An agent running a deploy, migration or infra command, seen by the hook before and after each command.
 - A daily check of each part's config fingerprint against the vendor's API, which catches changes made by hand in a console.
 
-Cost and use are still read daily, because traffic moves them even when nothing is reconfigured. They're watched with control bands and no model. You hear about infra only in four cases: a new paid part appears, what's deployed differs from the repo in a way that costs money, a paid part has no owner or no traffic, or an infra change is over budget. Everything else sits in an Infra panel in `fr view`. Where existing tools already read a vendor, the map uses them: Cartography and CloudQuery for cloud inventories, and Infracost for cost diffs on Terraform changes.
+Cost and use are still read daily, because traffic moves them even when nothing is reconfigured. They're watched with control bands and no model. You hear about infra only in four cases: a new paid part appears, what's deployed differs from the repo in a way that costs money, a paid part has no owner or no traffic, or an infra change is over budget. Everything else sits in an Infra panel in `dr view`. Where existing tools already read a vendor, the map uses them: Cartography and CloudQuery for cloud inventories, and Infracost for cost diffs on Terraform changes.
 
 ### The Money view
 
@@ -322,8 +322,8 @@ Cost and use are still read daily, because traffic moves them even when nothing 
 - **Model calls:** gateway logs and the app's own ledger. Tokens come from OpenTelemetry, and prices from a catalog.
 - **Agent spend and tool calls:** the agents' own transcripts, hooks and OpenTelemetry export. Claude Code's export already records each tool call with its duration and the time it sat waiting on you, and each model request with its tokens and cost.
 - **Infra:** vendor usage APIs and host metrics, per service and environment per day. Per-request infra cost is allocated by traffic share only when a question needs it.
-- **Your own app:** whatever it already records per call, in its own tables or OpenTelemetry spans. The pilot's booking app already wraps its agent's model stream to record each model and tool call's cost by task. It also logs every outside API call with its units and list price, and keeps a view of each task's outcome. So cost per confirmed booking needs no new code there. `fr` reads those tables with a read-only role and checks them against the vendors' own usage.
-- **Attribution needs a convention, not an SDK:** one key per app and environment, three attributes on calls you already log (environment, feature, tenant), and one ledger row per paid call that isn't logged today. `fr` publishes this as a contract with conformance tests. An optional helper of about 50 lines covers apps that log nothing yet, with no proxy.
+- **Your own app:** whatever it already records per call, in its own tables or OpenTelemetry spans. The pilot's booking app already wraps its agent's model stream to record each model and tool call's cost by task. It also logs every outside API call with its units and list price, and keeps a view of each task's outcome. So cost per confirmed booking needs no new code there. `dr` reads those tables with a read-only role and checks them against the vendors' own usage.
+- **Attribution needs a convention, not an SDK:** one key per app and environment, three attributes on calls you already log (environment, feature, tenant), and one ledger row per paid call that isn't logged today. `dr` publishes this as a contract with conformance tests. An optional helper of about 50 lines covers apps that log nothing yet, with no proxy.
 
 ## The core everything is built from
 
@@ -424,7 +424,7 @@ A preset is a list of extensions plus settings, not a separate product.
 
 ## What other tools can produce and check
 
-Teams adopt formats faster than services, and formats outlive their maintainers. Four formats are published: the spec file, the verdict names, the receipt, and the guard capability list. Any test runner, CI system or hook runtime can write or check them without running Flight Recorder.
+Teams adopt formats faster than services, and formats outlive their maintainers. Four formats are published: the spec file, the verdict names, the receipt, and the guard capability list. Any test runner, CI system or hook runtime can write or check them without running DoneRight.
 
 ### Spec
 
@@ -449,7 +449,7 @@ soak: 28d
 {
   "_type": "https://in-toto.io/Statement/v1",
   "subject": [{ "name": "web-app", "digest": { "sha256": "9f2c…" } }],
-  "predicateType": "urn:flight-recorder:proof:v0.1",
+  "predicateType": "urn:doneright:proof:v0.1",
   "predicate": {
     "change": "PR 482",
     "verdict": "PASS",
@@ -489,8 +489,8 @@ What any hook runtime needs in order to host a guard:
 | "Is it really done?" | A done gate runs your definition of done whenever an agent says done or opens a PR. The tool owns the proof and the verdict. Open items are tracked until each is resolved or accepted. | "Is it done?" follow-ups fall by half | R1 |
 | The issue already said what done means | The done gate reads the issue's acceptance criteria and matches each change to a sentence in it. The verdict decides whether the PR says "Closes" or "Part of". In the pilot's last two weeks, 134 of 243 sessions started from an issue link alone, and 101 of them later needed a "done and validated?" check. | Sessions that start from an issue need no follow-up about scope or closing | R1 |
 | "It passed on fakes" | Journeys run on a real stack and check the end state. Stand-ins are detected, and each claim needs a minimum lane. See [E2E proof](#prove-it-the-way-a-user-would-use-it). | No claim a user would notice is proven only on stand-ins | R1, R3 |
-| "What is each agent doing, and what does this mean?" | `fr status` shows each running agent as working, waiting on a lease, waiting on you, or stuck. Every change, verdict and open item carries a three-line plain summary. | "Still going?" and "explain this" asks fall by half | R1 |
-| "Start the local stack" every time | `fr env up` brings up the stack the proof needs, one per worktree with its own ports, after a doctor preflight. It stops only the processes it started. | No manual stack starts; no colliding stacks | R1 |
+| "What is each agent doing, and what does this mean?" | `dr status` shows each running agent as working, waiting on a lease, waiting on you, or stuck. Every change, verdict and open item carries a three-line plain summary. | "Still going?" and "explain this" asks fall by half | R1 |
+| "Start the local stack" every time | `dr env up` brings up the stack the proof needs, one per worktree with its own ports, after a doctor preflight. It stops only the processes it started. | No manual stack starts; no colliding stacks | R1 |
 | Checks that pass without running | Gate health: each check reports how many tests actually ran and its last real success. Stand-in environments get BLOCKED. | Zero silent gates | R1 |
 | History disappears | Transcripts and CI results are archived before their retention runs out, with an alert if capture goes quiet. | Nothing lost to retention | R1 |
 | Waiting on access | Every blocked event is recorded with its signature, cause, owner and hours lost. The tool fixes the self-serviceable part, such as expiring tokens and known setup errors, and drafts complete requests early for the rest. | Blocked hours visible weekly by cause and owner, with the top cause shrinking | R1 |
@@ -515,7 +515,7 @@ What any hook runtime needs in order to host a guard:
 
 OpenClaw and hermes-agent are two of the most-starred projects on GitHub, and agents write much of their code. We matched every commit to main from September 14 to early October 2026 against their issues and pull requests: 11,618 commits in OpenClaw and 13,569 in hermes-agent. Both ship 500 to 650 commits a day and merge almost everything without a human review, so their users are the last test. What breaks there at scale is what this product has to handle, and some of it changes the design.
 
-| Pattern | What we found | What Flight Recorder does |
+| Pattern | What we found | What DoneRight does |
 |---|---|---|
 | Main is the test bed | In hermes-agent, 82% of merged PRs are merged by their own author and 85% get no review. Main is red about a quarter of the time, and users report regressions within hours. In OpenClaw, the hourly full CI run on main failed 186 of 222 times, and fixes for a red main go straight to main ([fd5331f](https://github.com/openclaw/openclaw/commit/fd5331f17e0854d47d0bfe158359ac8613384249)). | An after-merge mode for teams like these. Each red build or user report is tied to the push behind it, a revert is proposed with a receipt, and "done" is judged at release. On a main that's already red, each failure is marked as new or inherited. |
 | Checks that ran nothing | hermes-agent's live provider canary reported success with every real step skipped because no key was set, including on a release gate ([run](https://github.com/NousResearch/hermes-agent/actions/runs/35985781919)). 12.7% of pushes to main got a CI run with zero jobs. | A skipped check is BLOCKED, never PASS (rules 3 and 4). |
@@ -539,10 +539,10 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 **What you see**
 
-- A terminal view for numbers and follow-ups: `fr status`, `fr inbox`, `fr show`.
-- A local web view, `fr view`, for screenshots side by side, one-click answers to taste calls, open items and charts. No hosting.
-- A PR comment with the verdict and screenshots, and `fr report`, one HTML file per change that opens offline.
-- `fr status` lists each running agent as working, waiting on a lease, waiting on you, or stuck. Every change, verdict and open item has a three-line plain summary.
+- A terminal view for numbers and follow-ups: `dr status`, `dr inbox`, `dr show`.
+- A local web view, `dr view`, for screenshots side by side, one-click answers to taste calls, open items and charts. No hosting.
+- A PR comment with the verdict and screenshots, and `dr report`, one HTML file per change that opens offline. Each verdict is also a GitHub commit status that branch protection can require.
+- `dr status` lists each running agent as working, waiting on a lease, waiting on you, or stuck. Every change, verdict and open item has a three-line plain summary.
 
 **Your time**
 
@@ -560,7 +560,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 **Environment up**
 
-- `fr env up` starts what the proof needs from your repo's own scripts or compose file, with one stack per worktree on leased ports.
+- `dr env up` starts what the proof needs from your repo's own scripts or compose file, with one stack per worktree on leased ports.
 - It tracks every process it starts and stops only those, by PID. It checks health before the proof runs and tears everything down after.
 - The environment manifest leases test accounts, phone numbers, simulators and screens to one session at a time. Each real resource has a cap, a cooldown and a cost estimate before every run.
 
@@ -757,7 +757,7 @@ Profile settings for personal, team and enterprise use are in the [framework](#t
 - **Running evals and tests:** Inspect, promptfoo, Harbor, your own test runner.
 - **Sandboxes, policy and approvals:** whatever the team already runs, including each agent's own permission tiers and hooks.
 - **Rollouts:** your host's gradual deploys.
-- **How agents should work:** skill packs such as pstack. They're advice; `fr` is the check behind them.
+- **How agents should work:** skill packs such as pstack. They're advice; `dr` is the check behind them.
 
 ### Build, because nobody owns it
 
@@ -778,13 +778,13 @@ Not built: an approval or policy engine, another model-spend tracker, trace stor
 | Checks | Playwright, Maestro, Vitest, pytest, tester-army/e2e, Harbor, Inspect, promptfoo, k6, Lighthouse, property-testing libraries, and Qlty CLI as an optional static checker |
 | Lanes | Your machine, GitHub Actions, GitLab CI or any other CI, nightly schedulers, live test accounts |
 | Guards | Claude Code, Codex and Cursor hooks; managed settings; CODEOWNERS and branch protection |
-| Skills | Agent Skills packs such as pstack, installed with the skills CLI; `fr` measures them like any other configuration change |
+| Skills | Agent Skills packs such as pstack, installed with the skills CLI; `dr` measures them like any other configuration change |
 | Receipts | in-toto, SLSA, Sigstore, and any evidence ledger the team already runs |
 | Decisions and open items | PR reviews, issue trackers, chat |
 
 ## What we copy from teams already doing this
 
-Four sources shaped the details. One is Anthropic's own write-ups on making claude.ai faster, cutting cost per task, running evals and triaging CI with agents. Another is formal verification, where we borrow the discipline, not the proofs. In a 2025 benchmark, the best model could fully prove only 4.9% of tasks, so proving app code isn't practical yet. Making each check impossible to fake is. The third is how OpenClaw and hermes-agent keep their own agent-built code working; see [Lessons](#what-breaks-in-two-of-the-busiest-agent-built-projects). The fourth is Anthropic's [AI-native SDLC playbook](https://claude.com/blog/the-ai-native-sdlc-playbook), which gives every stage from plan to maintenance a gate, a committed record and a measure. Most of its testing and hook advice is already here. We adopt its measures, its configuration evals, its control bands and its rehearsed rollbacks. One thing we don't copy: it puts team hooks in the repo's settings file, and we install hooks only at user level or through managed settings, because malicious packages have hidden hooks in repo settings. We also borrow from [pstack](https://github.com/cursor/plugins/tree/main/pstack), the skill pack poteto wrote at Cursor for rigorous agent work, mirrored for any agent at [backnotprop/pstack](https://github.com/backnotprop/pstack). Its skills are advice an agent may follow. `fr` is the check behind that advice, and it measures whether a pack like this helps on your own past tasks.
+Four sources shaped the details. One is Anthropic's own write-ups on making claude.ai faster, cutting cost per task, running evals and triaging CI with agents. Another is formal verification, where we borrow the discipline, not the proofs. In a 2025 benchmark, the best model could fully prove only 4.9% of tasks, so proving app code isn't practical yet. Making each check impossible to fake is. The third is how OpenClaw and hermes-agent keep their own agent-built code working; see [Lessons](#what-breaks-in-two-of-the-busiest-agent-built-projects). The fourth is Anthropic's [AI-native SDLC playbook](https://claude.com/blog/the-ai-native-sdlc-playbook), which gives every stage from plan to maintenance a gate, a committed record and a measure. Most of its testing and hook advice is already here. We adopt its measures, its configuration evals, its control bands and its rehearsed rollbacks. One thing we don't copy: it puts team hooks in the repo's settings file, and we install hooks only at user level or through managed settings, because malicious packages have hidden hooks in repo settings. We also borrow from [pstack](https://github.com/cursor/plugins/tree/main/pstack), the skill pack poteto wrote at Cursor for rigorous agent work, mirrored for any agent at [backnotprop/pstack](https://github.com/backnotprop/pstack). Its skills are advice an agent may follow. `dr` is the check behind that advice, and it measures whether a pack like this helps on your own past tasks.
 
 | Practice | Where it comes from | What it changes | Release |
 |---|---|---|---|
@@ -811,7 +811,7 @@ Four sources shaped the details. One is Anthropic's own write-ups on making clau
 | Releases record their evidence and waivers | OpenClaw's [release process](https://github.com/openclaw/openclaw/blob/main/docs/reference/RELEASING.md) records the commit, the evidence and any waived step, such as the skipped soak in [2026.9.5](https://github.com/openclaw/openclaw/releases/tag/v2026.9.5). | A waiver is a decision, and its outcome is measured. | R3 |
 | A cooldown on new dependencies | OpenClaw takes new dependency versions only after they're seven days old ([#158298](https://github.com/openclaw/openclaw/pull/158298)). | Upstream updates wait unless a fix needs them, and are re-proved when taken. | R2 |
 | Observed or modeled | hermes-agent's [post-mortem harness](https://github.com/NousResearch/hermes-agent/blob/main/evals/postmortem/README.md) labels every number as observed or modeled. | Every reading says whether it was measured or estimated. | R2 |
-| Agent configuration gets regression tests | The SDLC playbook runs 20 to 50 real past tasks as evals whenever the instruction file, skills or hooks change, and on a schedule. A change that lowers the pass rate goes back for review, and every incident adds a task. | `fr` builds the task set from your own transcripts. Every change to instruction files, skills, hooks, guards or policy is replayed against it before it lands, including the rules `fr` writes itself. | R4 |
+| Agent configuration gets regression tests | The SDLC playbook runs 20 to 50 real past tasks as evals whenever the instruction file, skills or hooks change, and on a schedule. A change that lowers the pass rate goes back for review, and every incident adds a task. | `dr` builds the task set from your own transcripts. Every change to instruction files, skills, hooks, guards or policy is replayed against it before it lands, including the rules `dr` writes itself. | R4 |
 | A plan with a proof section | In the playbook, work starts from a committed plan that lists the files that change, the order of work, the risks and the proof. Later stages check the diff against it. | The done gate runs the plan's proof steps and compares the merged diff with the plan. Plan drift and first-pass merges are readings, and the files listed feed the team claims. | R1, R4 |
 | A verifier with fresh eyes | The playbook's verifier runs in a new context, exercises the changed behavior and the two nearest neighboring flows, and reports without fixing anything. | The final journey check runs in a context that didn't write the code, and covers the nearest neighbors of the change as well as the change itself. | R1 |
 | Control bands, not fixed thresholds | The playbook watches a metric against a rolling baseline with standard drift rules. Detection uses no model. A small breach is logged, a larger one gets a read-only diagnosis, and only the largest may open a PR or run a pre-approved runbook. | Alerts use the same bands and tiers. Dismissals with a reason tune the bands, so noisy fixed-threshold alerts stop. | R2 |
@@ -819,11 +819,14 @@ Four sources shaped the details. One is Anthropic's own write-ups on making clau
 | Review findings with severity, and an author who can't approve | The playbook's review runs fixed passes (bugs, security, match with the spec and plan), caps the nits, and leaves approval to a human code owner. A finding seen twice goes into the instruction file. | Review findings become open items ranked by severity, the agent that wrote a change can't approve it, a repeated finding becomes a rule or guard, and each reviewer's precision is measured. | R4 |
 | A leading and a lagging measure for every stage | Each of the playbook's plays names its measures and reads them from records teams already keep: git timestamps, PR metadata, CI and OpenTelemetry. | These come built in as readings: time from issue to merge, first-pass merges, rework cycles, time to first review, time waiting at each approval, and the DORA measures. | R1, R2 |
 | One source of truth per record | The playbook names one system as the authority for each artifact, and at minimum links the tracker record and the commit both ways. | Every ledger item carries its issue ID and commit, and the verdict is linked back on the issue. | R1 |
-| Fix a repeated mistake at the highest level | pstack's [correct skill](https://github.com/backnotprop/pstack/blob/main/skills/correct/SKILL.md) fixes each class of repeated mistake with structure first, then types, then a lint whose error names the fix, then a test, and docs last. It keeps a table pairing each rule with what enforces it. | The same ladder and rule table for every lesson `fr` learns, with each new check proven on a real past mistake. | R4 |
+| Fix a repeated mistake at the highest level | pstack's [correct skill](https://github.com/backnotprop/pstack/blob/main/skills/correct/SKILL.md) fixes each class of repeated mistake with structure first, then types, then a lint whose error names the fix, then a test, and docs last. It keeps a table pairing each rule with what enforces it. | The same ladder and rule table for every lesson `dr` learns, with each new check proven on a real past mistake. | R4 |
 | A feature map kept honest | pstack [generates a verification skill](https://github.com/backnotprop/pstack/blob/main/skills/create-verification-skill/SKILL.md) with a map of user-facing features. A [maintenance pass](https://github.com/backnotprop/pstack/blob/main/skills/maintain-verification-skill/SKILL.md) drives every feature live and keeps drift in the map apart from real regressions. | Journeys start from a feature map, and features with no journey are a reading. | R1, R3 |
 | The "returns nothing" test | pstack's [testing rule](https://github.com/backnotprop/pstack/blob/main/skills/principle-test-behavior-not-implementation/SKILL.md): a test that would still pass if every function it imports returned nothing gets rewritten or deleted. It names five common shapes of such tests. | The first and cheapest bite check. | R3 |
 | Question the premise after two failed fixes | pstack's [rule](https://github.com/backnotprop/pstack/blob/main/skills/principle-attack-the-premise/SKILL.md): when two fixes that share a premise fail the same gate, write the premise down and measure it before any third fix. | Rule 2: a third patch on a failed assumption becomes a premise review in the inbox. | R4 |
 | Blinded evals | pstack's [eval playbook](https://github.com/backnotprop/pstack/blob/main/skills/poteto-mode/playbooks/eval.md): candidates don't know they're being tested, a judge from another model family sees only anonymized outputs, and what each agent did is read from its transcript, not its own report. | Configuration evals are graded the same way. | R4 |
+| Enforce a background verdict at the next stop | Justin Searls' [prove_it](https://github.com/searlsco/prove_it) runs expensive reviewers in the background while Claude keeps working, then enforces their verdict when it next stops. It also triggers checks on lines changed and when the agent loops. | Slow checks report at the next stop. Churn and loop triggers and reviewer subagents come with the guards. | R1, R4 |
+| Local CI as a commit status | Basecamp's [gh-signoff](https://github.com/basecamp/gh-signoff) runs tests on your own machine and posts the result as a GitHub commit status. | Every verdict is posted the same way, so branch protection can require it without hosted CI. | R1 |
+| No evidence, no done | [donecheck](https://github.com/AtharvaMaik/donecheck) fails when there's nothing to verify, flags placeholder text in changed files, and marks a receipt stale when its inputs change. [DoneGate](https://github.com/Tetusa1/DoneGate) requires the right commit, owned paths and a lease, not an exit code. | The done gate flags placeholders, verdicts go stale with a new commit, and team guards check path ownership. | R1, R4 |
 
 ## How the framework knows it's working
 
@@ -854,7 +857,7 @@ The release details are in the [roadmap](#proof-of-done-first-then-everything-el
 
 | Decision | Recommendation | Needed by |
 |---|---|---|
-| Name | Name the job, measuring and proving changes. Flight Recorder is the working name. | Before the public launch |
+| Name | DoneRight, chosen on October 5 because it says the job in plain words. It replaced the working name Flight Recorder, which read as aviation or Java. | Done |
 | Core size | The core is the record, gates, asks and adapters. Everything else ships as an extension, including our own features, and a new core feature needs a reason no extension can meet. | R1 |
 | Extension trust | Extensions run as code. They install at user level and are pinned to a version. A project's extensions load only after you trust the project. | R1 |
 | Language | TypeScript on Node for the core, extensions, local view, MCP server and team server. Extensions load in-process as TypeScript modules, the way pi's do, and everything around the product (MCP, Playwright, agent plugins, Cloudflare Workers) is TypeScript too. The one native piece is the hook client, a tiny Rust binary that forwards each hook call to the running hub and allows the action if the hub is down, because hooks run on every tool call. Rust comes in elsewhere only where profiling shows a need, as a native module. Contracts are JSON Schemas with conformance tests and a JSON-RPC mode, so extensions in any language can run out of process. | R1 |

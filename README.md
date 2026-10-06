@@ -1,10 +1,10 @@
-# Flight Recorder
+# DoneRight
 
-Measure and prove every change your coding agents make.
+Your coding agent says it's done. DoneRight checks it's done right, and asks you only what needs a person.
 
-Writing code is cheap now. Knowing a change is right, and what it cost, is the bottleneck. Flight Recorder turns an agent's claim ("done", "fixed", "no visible change") into a verdict without you, using evidence the tool makes itself. It brings you only the calls that need a person.
+Writing code is cheap now. Knowing a change is right, and what it cost, is the bottleneck. DoneRight turns an agent's claim ("done", "fixed", "no visible change") into a verdict without you, using evidence the tool makes itself. It brings you only the calls that need a person.
 
-> **Status: design.** Nothing is built yet. The plan lives in the [issues](https://github.com/windoliver/flight-recorder/issues) and [milestones](https://github.com/windoliver/flight-recorder/milestones). "Flight Recorder" is a working name.
+> **Status: design.** Nothing is built yet. The plan lives in the [issues](https://github.com/windoliver/doneright/issues) and [milestones](https://github.com/windoliver/doneright/milestones).
 
 ## How it works
 
@@ -27,7 +27,7 @@ Every verdict is one of five:
 | `BLOCKED` | Something outside the code is missing: an environment, access or an approval | Its owner gets the request |
 | `INVALID` | The check is broken, can't fail, or ran nothing | Fix the check |
 
-An item reaches you only for **taste** (a judgment only you can make), **authority** (anything irreversible, outward-facing or over budget), **unblock** (something only you can provide), or an **exception** (something the system can't settle). The whole record stays visible in `fr view` whenever you look, but nothing else is pushed.
+An item reaches you only for **taste** (a judgment only you can make), **authority** (anything irreversible, outward-facing or over budget), **unblock** (something only you can provide), or an **exception** (something the system can't settle). The whole record stays visible in `dr view` whenever you look, but nothing else is pushed.
 
 ## Principles
 
@@ -45,7 +45,7 @@ An item reaches you only for **taste** (a judgment only you can make), **authori
 
 ```
 packages/   core, hub, cli, view, mcp, contracts, first-party extensions, adapters  (TypeScript, Node 22.19+)
-crates/     fr-hook, the tiny hook client every agent hook calls                   (Rust)
+crates/     dr-hook, the tiny hook client every agent hook calls                   (Rust)
 docs/       product and technical design
 ```
 
