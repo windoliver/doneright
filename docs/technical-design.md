@@ -9,7 +9,7 @@ The product, its reasoning and the roadmap are in the [product doc](./product.md
 ### In version 0
 
 - **The core:** the record, gates, asks and the adapter contract.
-- **Adapters:** Claude Code (terminal and desktop app) and Codex. pi follows in R2.
+- **Adapters:** Claude Code (terminal and desktop app) and Codex (CLI and app). pi follows in R2.
 - **Done gate:** runs when an agent says it's done. Checks come from the repo's `.doneright/` specs, the issue's acceptance criteria and the agent's plan. Nobody writes the specs by hand: `dr init` drafts them from what the repo already runs, agents propose journeys, and you approve once.
 - **Checks:** shell commands and browser journeys with Playwright.
 - **Asks:** the inbox, a resolver that reuses your saved decisions, and delivery back into sessions.
@@ -23,12 +23,14 @@ The product, its reasoning and the roadmap are in the [product doc](./product.md
 
 - Readings and money: vendor bills, the infra map, FinOps.
 - Policy beyond exact saved decisions, the memory keep-or-remove list, and fixes for recurring errors.
-- Team claims, overlap warnings and merge checks.
+- In R2: parallel sessions (a session map, notices to each agent and dry merges) and plan usage per account and per task. See [Parallel and plans](#parallel-sessions-and-plan-limits).
+- Team claims and merge checks across teammates' machines.
 - CI policies, receipts in a signed attestation format, and exports beyond GitHub: the status line, the weekly brief and OpenTelemetry.
 - Phone, text-message, desktop and chat-app journeys with leased real accounts.
 - Agent spend caps, leased remote test machines, and the feature map that keeps itself current.
 - In R2: the pi package, npm packaging with prebuilt binaries and the Claude Code plugin, the PR comment and `dr report`, and the OTLP receiver.
 - The Cursor adapter, the team server and the enterprise preset.
+- In R6: playbooks (`dr create`), scheduling within each account's plan windows, the agent and account picker, and scores with replayed improvements.
 
 ## One hub per user, a tiny hook client, and extensions in-process
 
@@ -230,14 +232,14 @@ sequenceDiagram
 
 ### Before each command
 
-dr-hook first checks the fast rules in `rules.json`, such as no kills by name and no workflow dispatch without approval, so these hold even when the hub is down. It then asks the hub, which runs guards in watch, warn or block mode, the policy resolver for permission prompts, and lease checks for shared resources. Each decision is recorded as an event with its time and reason.
+dr-hook first checks the fast rules in `rules.json`, such as no kills by name or port, no workflow dispatch without approval, no bare `git stash` (the stash stack is shared by every worktree) and no git aimed at another worktree, so these hold even when the hub is down. It then asks the hub, which runs guards in watch, warn or block mode, the policy resolver for permission prompts, and lease checks for shared resources. Each decision is recorded as an event with its time and reason.
 
 ## What each agent gives us, and the limits we design around
 
 | Agent | Hooks used | Getting an answer back | Transcripts | Known limits |
 |---|---|---|---|---|
 | Claude Code | SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, Stop and SessionEnd. They ship as a Claude Code plugin at user scope, together with the MCP server and a short skill. Commits made in the session are recorded from the hooks. | A Stop hold returns `decision: block` with the answer. A background `asyncRewake` waiter exits with code 2 to wake an idle session. UserPromptSubmit and SessionStart add context as a fallback. | `transcript_path` from each hook, which can lag the live turn. The archive copies files before the 30-day cleanup. | Waking from the desktop app is untested. A waiter can outlive a headless session, so it watches its parent process. UserPromptSubmit hooks get 30 seconds. |
-| Codex | The same events, in `~/.codex/hooks.json` | A Stop hold becomes the next prompt. Background hooks never start a turn, so an idle session hears back only on your next message. Sessions `dr` starts through app-server can get answers right away. | `transcript_path`, which Codex says isn't a stable format, so the adapter reads hook payloads first | Hooks you add yourself need a one-time trust approval in Codex's `/hooks`. Interrupt hooks get 1 to 3 seconds. |
+| Codex | The same events, in `~/.codex/hooks.json` | A Stop hold becomes the next prompt. Background hooks never start a turn, so an idle session hears back only on your next message. Sessions `dr` starts through app-server can get answers right away. | `transcript_path`, which Codex says isn't a stable format, so the adapter reads hook payloads first | Hooks you add yourself need a one-time trust approval in Codex's `/hooks`. Interrupt hooks get 1 to 3 seconds. The Codex app reads the same file, but two open reports say its hooks didn't run ([openai/codex#33992](https://github.com/openai/codex/issues/33992), [#47607](https://github.com/openai/codex/issues/47607)), so the Codex week tests the app too. |
 | pi (R2) | A pi package in-process: session and tool events, plus native tools | `pi.sendUserMessage` starts a turn when the session is idle, and steers in or queues a follow-up when it's busy | JSONL files under `~/.pi/agent/sessions/`, grouped by working directory | The package runs inside pi, so it follows pi's own trust rules |
 | Cursor (R2) | `hooks.json`: sessionStart, preToolUse, postToolUse, stop | A stop hold with `followup_message`, with `loop_limit` raised from its default of 5 | Hook payloads | No route to wake an idle local chat |
 
@@ -251,7 +253,7 @@ dr-hook first checks the fast rules in `rules.json`, such as no kills by name an
 | journeys | Drives a browser journey with Playwright against the environment and checks the end state. It starts from a feature list in `.doneright/features/`, which agents propose and you approve. When a change touches a feature with no journey, the agent that made it is asked to propose one. It saves video, screenshots and the trace as evidence, which outlives the environment's teardown. Each end-state check records the selector and bounding box it looked at, so a highlight can be drawn later. A journey that passes is saved as a replayable script. It runs the changed feature's journeys plus their nearest neighbors, the features that share changed files. |
 | env-local | Starts the repo's own dev scripts or compose file and checks health. It leases ports per worktree, and test accounts, phone numbers, simulators and screens per session, each with a cap, a cooldown and a cost estimate. It tears everything down by PID. |
 | resolver-decisions | Answers an ask only when a saved decision matches its kind, its normalized question and its scope exactly. A near match is suggested to you, never applied on its own. |
-| view | Three views, in the order you need them. Needs you: the asks, your next batch, and what was decided for you with an overrule. Work: every session and change on one line, led by a plain sentence; passed checks fold into one line; evidence, receipt and highlights are one click deeper; the repo's spec. Numbers: readings outside their band first, then money, the infra map and the guards that fired. One count of what needs you appears everywhere, and color means status only. |
+| view | Three views, in the order you need them. Needs you: the asks, your next batch, and what was decided for you with an overrule. Work: every session and change on one line, led by a plain sentence; an open change shows its end-to-end run (runs and clean runs, a screenshot per step, the checked end state with highlights beside it); passed checks fold into one line; the video, trace and receipt are one click deeper; the repo's spec. Numbers: readings outside their band first, then money, the infra map and the guards that fired. One count of what needs you appears everywhere, and color means status only. |
 | archive | Copies Claude Code, Codex and pi transcripts into `~/.doneright/archive/` before each agent's cleanup deletes them, redacted the same way as ingestion. |
 | readings | Your time and agent spend from transcripts: "is it done?" asks, rework, review wait, blocked time, failed calls by error signature, and tokens and cost. Lifecycle numbers from git and GitHub: time from issue to merge, first-pass merges and time to first review. |
 | github | Posts each verdict as a commit status that branch protection can require, the way gh-signoff does local CI. In R2 it adds a PR comment with the verdict and open items, and `dr report`, one self-contained HTML file per change. `dr report --highlight` adds copies of the screenshots with what each check looked at marked in a strip beside the frame, never over it. A PR from an agent with no adapter, local or in the cloud, still gets the done gate on its commit and a posted verdict. |
@@ -275,6 +277,29 @@ environment:
   ports: [web, api]                            # leased per worktree
   ready: { http: "http://localhost:${web}/health" }
 ```
+
+## Parallel sessions and plan limits
+
+Both build on what version 0 already records. Neither starts a session or spends a token on its own.
+
+### Sessions that know about each other
+
+Every hook call already carries the session ID, the working directory and the tool input, such as the file an edit touches or the command a shell runs. The hub keeps a session map from them: agent, worktree, branch, issue, changed files, running commands, leases and state.
+
+- **Telling the agent.** Claude Code and Codex both take extra context from SessionStart, UserPromptSubmit, PreToolUse and PostToolUse hooks. At session start the agent hears who else is in the repo and on what. Before an edit to a file another session changed, it hears which session changed it and whether their branches conflict. After a sibling's change merges and touches its files, it's told to rebase before it says done.
+- **Dry merges.** The hub runs `git merge-tree --write-tree` between in-flight branch tips, off the hook path, and reads only its exit code and the conflicting files. It touches no worktree or index. Uncommitted edits are compared by file and hunk from what the hooks reported, never by running git inside another worktree. Claude Code's Edit and Write name the file; a Codex edit is a raw patch, so the paths come from its `*** Update File:` lines.
+- **Hard stops.** A PreToolUse deny, with the reason and the next free value, when a migration number or another declared unique name is already taken on a sibling branch, or a port or test account is leased to another session. Two sessions on one issue become one ask.
+- **Load.** A timing check that fails while other sessions load the machine is rerun alone before it counts.
+- **Safety.** Notices are built from facts (paths, issue numbers, line ranges, session names), never from another agent's text, so one agent can't instruct another. Codex hears a notice at its next tool call or message; an idle Claude Code session can be woken.
+
+### Plan usage, per account and per task
+
+On a subscription the limit is the plan's windows, not dollars. Both agents report them locally, and `dr` reads them without touching a credential.
+
+- **Claude Code.** The status line receives `rate_limits.five_hour` and `rate_limits.seven_day` (percent used and reset time) on Pro and Max plans, after a session's first reply. `dr` installs a status line command that forwards them to the hub and then runs yours unchanged. The account is the account ID Claude Code keeps beside its login, not the login itself. Sessions `dr` starts through the Agent SDK also get `rate_limit_event` messages, including the per-model weekly windows.
+- **Codex.** Token events in the session logs carry `rate_limits`: the plan, the 300-minute and weekly windows with percent used and reset time, and credits. `session_meta.creator_account_id` names the account the session ran under. Codex fills these from its own response headers, so reading them costs no call. Sessions `dr` starts through app-server also get `account/rateLimits/updated` and `thread/tokenUsage/updated`. The output of `codex login status` is never logged, because with an API key it prints part of the key.
+- **Per task.** Tokens come from the transcripts (input, output and cache), summed per session, claim and issue, subagents included; when OpenTelemetry is on, its token counts carry the session, prompt and account IDs. Each task shows its share of each window and what the same work would cost on an API key. How tokens turn into window percent is learned per model from your own history, and small tasks' shares are marked as estimates because Codex reports whole percents.
+- **Accounts.** Windows are kept per account, so signing in to another account doesn't look like a reset. `dr` never signs in, switches accounts or suggests a switch, never reads a credential file, and never calls a vendor endpoint with your tokens.
 
 ## Threats, and what stops each one
 
@@ -344,7 +369,7 @@ Exit: a journey's video and screenshots show up in the view, and a taste call is
 
 ### Nov 2–8
 
-**Codex, spec drafting and dogfooding.** The Codex adapter with its trust step, and spec drafting: `dr init` drafts each repo's `.doneright/`, and agents propose journeys with `dr_propose`. Then a week of real use across Claude Code and Codex sessions, run from the checkout. The pi package, npm packaging, the Claude Code plugin, the PR comment, `dr report` and the OTLP receiver move to R2.
+**Codex, spec drafting and dogfooding.** The Codex adapter with its trust step, tested in the CLI and the Codex app, and spec drafting: `dr init` drafts each repo's `.doneright/`, and agents propose journeys with `dr_propose`. Then a week of real use across Claude Code and Codex sessions, run from the checkout. The pi package, npm packaging, the Claude Code plugin, the PR comment, `dr report` and the OTLP receiver move to R2.
 
 Exit: used for a week across Claude Code and Codex on the maintainer's machine, with every repo's spec drafted and approved, none written by hand. Decision 1 compares "is it done?" follow-ups and asks per merged change against the pilot baseline.
 

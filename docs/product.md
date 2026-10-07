@@ -140,7 +140,7 @@ Prove and Decide are the core. Measure and Keep are first-party extensions, on b
 
 The hook-started waiter is the backstop for when the agent forgets. Holding costs nothing, but the session looks busy until you answer or the hold times out, so `dr` holds only when the agent left a question for you. A question in the middle of a task works the same way: the agent calls `dr ask` and waits on the call. Each waiter exits with its session and claims an answer only once, and `dr` confirms delivery from the transcript. Claude Code can also wake on a timer (session crons), but every tick is a full model turn, so `dr` doesn't use them. In Codex, a wait the agent runs in the foreground can turn into repeated polling that burns tokens. Nothing here needs a startup flag. Claude Code's channels do, and they don't run in the desktop app. Answers enter the agent as instructions, so the hub accepts them only from your terminal and local view.
 
-Tested October 4, 2026 on Claude Code 2.1.289, headless: a held stop continued the agent with the answer. An idle session woke 1.4 seconds after the answer reached the hook's waiter, and 2.5 seconds after it reached a background waiter the agent had started. Not yet tested: the Claude desktop app, Codex and Cursor. Sources: Claude Code [hooks](https://code.claude.com/docs/en/hooks) (background hooks, `asyncRewake`) and [channels](https://code.claude.com/docs/en/channels); Codex [hooks](https://developers.openai.com/codex/hooks) (background hooks don't start a turn) and [app-server](https://developers.openai.com/codex/app-server); [openai/codex#47193](https://github.com/openai/codex/issues/47193), [#32188](https://github.com/openai/codex/issues/32188) (background completion doesn't wake) and [#38495](https://github.com/openai/codex/issues/38495) (polling cost); Cursor [hooks](https://cursor.com/docs/hooks) (`followup_message`, `loop_limit`); pi [sendUserMessage example](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/send-user-message.ts).
+Tested October 4, 2026 on Claude Code 2.1.289, headless: a held stop continued the agent with the answer. An idle session woke 1.4 seconds after the answer reached the hook's waiter, and 2.5 seconds after it reached a background waiter the agent had started. Hooks also run in the Claude desktop app: a desktop session ran its SessionStart and WorktreeCreate hooks on October 6. Not yet tested: a held stop there, Codex, the Codex app and Cursor. Two open reports say hooks didn't run in the Codex app ([openai/codex#33992](https://github.com/openai/codex/issues/33992), [#47607](https://github.com/openai/codex/issues/47607)), so the Codex app is tested before anyone relies on it. Sources: Claude Code [hooks](https://code.claude.com/docs/en/hooks) (background hooks, `asyncRewake`) and [channels](https://code.claude.com/docs/en/channels); Codex [hooks](https://developers.openai.com/codex/hooks) (background hooks don't start a turn) and [app-server](https://developers.openai.com/codex/app-server); [openai/codex#47193](https://github.com/openai/codex/issues/47193), [#32188](https://github.com/openai/codex/issues/32188) (background completion doesn't wake) and [#38495](https://github.com/openai/codex/issues/38495) (polling cost); Cursor [hooks](https://cursor.com/docs/hooks) (`followup_message`, `loop_limit`); pi [sendUserMessage example](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/send-user-message.ts).
 
 **Memory: learn from every agent's, keep none of its own.** Each agent already keeps memory, and each keeps it alone. Claude Code writes notes per repository and loads the first 200 lines of their index. Codex summarizes past sessions and loads only 2,500 tokens of that summary. pi and Cursor read instruction files only. None sees the others' notes, and none enforces them. `dr` reads all of them, plus the transcripts, and turns each lesson into one of three things:
 
@@ -246,7 +246,7 @@ The mocks and numbers are illustrative. The same evidence also appears in the PR
 **What `dr view` shows.** You open it with three questions: does anything need me, is the work done, and what did it cost. So it has three views, in that order. Only the first ever pushes, and nothing is taken away by keeping the rest quiet: every detail is one click deeper.
 
 - **Needs you:** each ask as one question, the one piece of evidence that answers it, and two buttons. Below it, what's coming in your next batch, and everything decided for you, each with a one-click overrule.
-- **Work:** every session and change on one line, led by a plain sentence such as "Not done: the receipt shows $18.00". Open one for its failing and running checks. Passed checks fold into one line, and the screenshots, video, receipt and a highlight of what was checked are one click deeper. The repo's spec is here too.
+- **Work:** every session and change on one line, led by a plain sentence such as "Not done: the receipt shows $18.00". Open one for its verdict and its end-to-end run: how many runs came back clean, a screenshot of each step, and the end state with a highlight of what was checked beside it. Failing and running checks come next; passed checks fold into one line. The video, trace and receipt are one click deeper, and `dr report` puts all of it in one HTML file. The repo's spec is here too.
 - **Numbers:** readings outside their band, or that changed, come first; the rest fold into one line. Money, the infra map and the guards that fired are sections here, and extensions add their own.
 
 One count, the things that need you, reads the same everywhere: the view's title, the status line and the first line of `dr status`. Color means status and nothing else: the five verdicts and "needs you". Highlights never cover a screenshot: what each check looked at is marked in a strip beside it.
@@ -516,6 +516,9 @@ What any hook runtime needs in order to host a guard:
 | Fixed bugs come back | A guard for each failure class, proven to fail on the old code, protected from agents, and measured once it's live. | Guarded classes stay away for 30 days | R3, R4 |
 | Merged isn't shipped | Each change moves from merged to released in every channel to checked live. Checks deferred until "after deploy" reopen when the release lands, and a release that skips a channel leaves the fix BLOCKED there. | No fix is called done before it reaches the users who reported it | R3 |
 | Fixes don't reach every copy | Tracks which branches, releases and installs carry each fix, opens backport PRs with the spec attached, and checks agent tooling versions at session start. | Every fix reaches its copies | R4 |
+| Your own agents step on each other | Every session knows who else is in the repo, what it changed and what it holds. An agent hears before it edits a file another session changed, or when a dry merge shows a conflict, and it's told when a sibling's merge touches its files. Migration numbers, ports and test accounts can't be taken twice, and two sessions on one issue become one question to you. Killing by name, a shared stash and git aimed at another worktree are blocked from R1. | No killed stacks, overwritten setups or duplicate fixes between your own sessions | R1, R2 |
+| A plan limit runs out mid-task | Each account's 5-hour and weekly windows and each task's tokens, from the agents' own data. Then tasks are scheduled into the windows, with a share kept for you. | No task stalls on a limit you didn't see coming | R2, R6 |
+| The same workflow, driven by hand every time | Your usual steps run as a playbook drafted from your history. Each step is gated, each task goes to the agent and account that fits, and every change to a flow is replayed before it applies. | A one-line request becomes a proven first release, and you're asked only taste and approval calls | R6 |
 | Teammates overwrite each other | An ownership check before an agent edits a teammate's recent lines, a claim on each issue before an agent starts, early warning on overlapping work, and a check of the merged result that re-runs recent fixes' tests. | Overwrites and duplicate fixes near zero | R4 |
 | Main moved again | When main moves, the agent rebases its branch, re-runs the affected checks and refreshes the verdict, so you never paste a conflict banner back to it. | No PR waits on you for a rebase | R4 |
 | Agents stop to ask what you already answered | A policy check runs whenever an agent stops with a question, asks one, or hits a permission prompt. Covered questions are answered and the agent goes on. Answers you keep repeating become proposed policy. | Questions with a standing answer never reach you | R1, R4 |
@@ -620,6 +623,19 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 - Findings ranked by dollars per month: idle services, oversized resources, backup bloat, unattributed spend, dev and test spend, unused plans, credit runway.
 - The infra map: one full discovery, then re-mapped only when infra changes.
 
+**Parallel sessions**
+
+- Every session knows who else is working in the repo: which agent, which issue, which files it changed, and which ports and test accounts it holds.
+- An agent hears about a collision before it happens: when it's about to edit a file another session changed, or when a dry merge shows two branches will conflict. When a sibling's change merges and touches its files, it's told to rebase before it says done.
+- What can only be used once can't be taken twice: a migration number another branch already took, a port or a test account. Two sessions on the same issue become one question to you.
+- Each notice is built from facts such as paths, issue numbers and line ranges, never from another agent's words, so one agent can't steer another.
+
+**Plan limits**
+
+- Each account's 5-hour and weekly windows and their reset times, read from Claude Code's and Codex's own data.
+- Tokens and window share counted for every task, with what the same work would cost on an API key.
+- DoneRight never signs in, switches accounts or touches credentials. Sign in to another account and the work carries on with that account's windows.
+
 **Find**
 
 - Speed by stage. Each spike is tied to the deploy, PR and session behind it, and alerts arrive with evidence and a proposed fix.
@@ -675,7 +691,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 **Teams and live runs**
 
-- Team guards: a claim on each issue before an agent starts, warnings when work overlaps, and a merge check that re-runs recent fixes' tests on the merged result.
+- Team guards: R2's parallel-session notices extended across teammates' machines, a claim on each issue before an agent starts, and a merge check that re-runs recent fixes' tests on the merged result.
 - When main moves, the agent rebases, re-runs the affected checks and refreshes the verdict.
 - Review findings become open items ranked by severity. The agent that wrote a change can't approve it, and each reviewer's precision is measured.
 - Registered test identities that refresh themselves.
@@ -722,6 +738,30 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 - A replay of archived CI history shows what a policy saves, and whether it would miss a real failure, before you turn it on.
 
 **Done when** CI minutes per merged change fall, every red run is labeled real, flaky or inherited within an hour, and the replay misses no real failures.
+
+### R6 · Feb 22 – Apr 4
+
+**Run your workflow.** The steps you drive by hand on every project, from research through issues, builds, proof and the PR to the release, run as a playbook. You're still asked whatever needs a person.
+
+**Playbooks**
+
+- `dr create` turns a one-line request into your usual steps, each an agent session with a gate: research, issues with dependencies, builds in parallel worktrees, proof, the PR and the release.
+- A gate is a check that runs plus something a named person accepts, such as a spec, a plan or a PR. A model reading the transcript is never a gate.
+- The playbook is drafted from your own history, the steps you actually repeat, and you approve it once, like the spec.
+- You start it. Taste calls, approvals and anything only you can unblock still come to you.
+
+**Within your plans**
+
+- Tasks are scheduled into each account's windows, with a share kept for your own work. Big jobs start after a reset, and a task that won't fit waits instead of stalling halfway.
+- Each task goes to the agent, account and model that fits: allowed for this repo first, then past results on this kind of task, then room left, then the cheaper one on a tie. The reason is shown.
+- Sessions start through the unmodified Claude Code and Codex on your own sign-in. Nothing routes requests through a plan, and each scheduled automation is capped or moved to an API key.
+
+**Learn from results**
+
+- Every flow, skill, agent and model is scored by outcomes and your feedback: merges without rework, rounds to a pass, review rounds, your overrules, and passes you later reopened as broken. How often you accept an agent's work counts as sentiment, not quality.
+- Only runs you accepted are learned from. A change to a flow, prompt or skill is proposed as a diff, replayed on held-out past tasks for each model, and applied only with your OK. Nothing rewrites itself.
+
+**Done when** a one-line request becomes a proven first release with you asked only taste and approval calls, and no task stalls on a limit you didn't see coming.
 
 ## Same core, different profile
 
@@ -869,6 +909,7 @@ Four sources shaped the details. One is Anthropic's own write-ups on making clau
 | R3 Change with proof | Receipt, Lane, Spec environment | 1, 10 |
 | R4 Keep | Guard, failure classes, Owner | 2, 6, 7 |
 | R5 CI | CI lanes and policies | 8 |
+| R6 Run your workflow | Playbooks made of Claims, Checks and Decisions; quota Readings per account | 9, 10 |
 
 The release details are in the [roadmap](#proof-of-done-first-then-everything-else-builds-on-it) above.
 
@@ -890,6 +931,8 @@ The release details are in the [roadmap](#proof-of-done-first-then-everything-el
 | Live test budget | A monthly cap per real resource that you set. Live journeys run only when asked or before a release. | R1 |
 | Where configuration evals run | On your machine, or in a lane you dispatch with a budget. Never on every push in hosted CI, since each run makes paid model calls. | R4 |
 | Memory | Keep no notes of its own. Learn from each agent's memory and transcripts, and ask you only keep or remove. | R4 |
+| Subscriptions | Used only through the unmodified Claude Code and Codex on your own sign-in. DoneRight never holds credentials or routes requests through a plan. Hooks, held stops and sessions you asked for are ordinary use; each scheduled automation it starts on its own is capped or moved to an API key. | Done |
+| Several accounts | Account-agnostic. DoneRight never signs in, switches accounts or suggests a switch. It tracks each account's windows separately, so a newly signed-in account isn't mistaken for a reset, and queued work carries on with whichever account you sign in to. | Done |
 | Enterprise design partner | One large organization, run under its own confidentiality rules, with its data and evidence kept inside it | Before the enterprise pilot |
 
 ## Where this comes from

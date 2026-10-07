@@ -56,6 +56,8 @@ flowchart TD
     T30["#41 Packaging"]
     T31["#42 OTLP receiver for agent telemetry"]
     T38["#49 PR comment and dr report"]
+    T40["#52 Parallel sessions"]
+    T41["#53 Plan usage"]
   end
   T1 --> T2
   T1 --> T3
@@ -151,15 +153,24 @@ flowchart TD
   T1 --> T37
   T35 --> T38
   T24 --> T38
+  T7 --> T40
+  T25 --> T40
+  T28 --> T40
+  T37 --> T40
+  T7 --> T41
+  T28 --> T41
+  T34 --> T41
+  T36 --> T41
 ```
 
 ## Later releases
 
-- #6 R2 · Find, and trust the numbers — blocked by #3; tasks so far: #40, #41, #42, #49
+- #6 R2 · Find, and trust the numbers — blocked by #3; tasks so far: #40, #41, #42, #49, #52, #53
 - #7 R3 · Change with proof — blocked by #6
 - #8 R4 · Keep — blocked by #7
 - #9 R5 · CI — blocked by #1, #6
 - #10 Money and infra extensions — blocked by #6
+- #51 R6 · Run your workflow — blocked by #6, #8
 - #11 Team server and enterprise preset (after Decision 2) — blocked by #4, #5
 
 ## Tasks
@@ -205,3 +216,5 @@ flowchart TD
 | #47 | Fixture corpus: recorded hook payloads and transcripts per agent version | R1 | #1 | #12, #15 |
 | #48 | Agent test harness: scripted Claude Code, Codex and pi sessions | R1 | #1 | #12 |
 | #49 | PR comment and dr report | R2 | #6 | #46, #35 |
+| #52 | Parallel sessions: a session map, notices to each agent, and dry merges | R2 | #6 | #18, #36, #39, #48 |
+| #53 | Plan usage: each account's windows and every task's tokens | R2 | #6 | #18, #39, #45, #47 |
