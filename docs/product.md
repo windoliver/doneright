@@ -33,7 +33,7 @@ From first principles the product has one job: turn an agent's claim into a verd
 - **Record:** an append-only event log plus the evidence folder. Every view, agent and extension reads it.
 - **Gates:** when a trigger fires, a gate runs the checks for a claim and returns one of five verdicts. The done gate, a guard before a command and a check on a PR are all gates with different triggers.
 - **Asks:** the only thing a person sees. Resolvers try to answer each ask first. What's left goes to the inbox, and the answer is saved as a decision and delivered back to the session.
-- **Adapters:** one contract for the hook points every agent has: session start, before and after a tool, prompt submit, and stop.
+- **Adapters:** one contract for the hook points every agent has (session start, before and after a tool, prompt submit, and stop), plus delivering your answer and starting a session. The fast rules live in the hook client, so they hold even when the hub is down.
 
 ### Six concepts and four invariants
 
@@ -57,6 +57,10 @@ No extension can break these. The other rules in the framework are defaults of t
 
 Asks are batched and interruptions have a daily cap. Only an ask that is holding up a running session goes out right away. The product's main number is how many asks reach you per merged change, which should fall while verdicts hold.
 
+**Learning starts with one command.** Run `dr init`. On a new machine it first reads your Claude Code and Codex history and their memory files, on your machine: what you keep asking agents to check, how your stacks start, where credentials live (names and paths, never values), and the rules you've given agents. It shows what it learned, each with its source, and asks a few one-time questions with defaults already chosen: which agent does its reading, which accounts belong to which repos, how much of each plan window to keep for you. Accepting every default is one keypress. Inside a repo it then drafts that repo's spec. After that it learns from the hooks as sessions happen, and `dr learn` re-reads history on demand. DoneRight brings no model of its own: when it needs to read free text, it runs the agent you already use, headless, on your own sign-in, with your own skills and settings.
+
+**Your words and your screenshots.** Buttons are a shortcut, never the only answer. Say what you want instead: words that change a spec, a playbook or a check come back as a diff, and nothing is written until you apply it. Words or a screenshot answering a taste call go to the agent as your answer and are saved with the decision. A screenshot you paste into a session is kept too, by hash, with the message it came with and the change it's about. If it shows a bug, the fix has to pass a check made from it, either the end state it shows or a visual diff. If it's a taste remark, it's saved as a decision with the screenshot as its baseline, so agents see it before they touch that screen again and you never send it twice.
+
 ### The extension interface
 
 ```
@@ -69,20 +73,23 @@ export default function (dr) {
   dr.registerSource("transcripts", readSessions)  // turns outside data into events
   dr.registerEnvironment("stack", bringUpStack) // what checks need, with leases
   dr.registerView("side-by-side", renderShots)  // panels, PR comments, reports, exports
-  dr.registerAdapter("codex", codexHooks)       // hook points and answer delivery
+  dr.registerAdapter("codex", codexHooks)       // hook points, answer delivery, starting a session
+  dr.on("tool.before", headsUp)                 // a handler may add context for the agent, or deny with a reason
+  dr.startSession({ agent, worktree, prompt })  // through the agent's adapter, on your own sign-in
+  dr.registerScheduler(pickAndPace)             // which agent, plan and model takes a task, and when
 }
 ```
 
 ### First-party extensions
 
 - **Agent adapters:** Claude Code and Codex first, then pi and Cursor.
-- **Done gate** and **local view**, on by default.
-- **E2E proof:** journeys, the feature map and environments.
-- **Policy and memory:** resolvers and the keep-or-remove list.
-- **Readings and money:** speed, time, quality and agent spend, then vendor bills and the infra map.
-- **Team:** claims, overlap warnings and merge checks.
-- **CI**, **receipts** and **exports**: PR comment, report file, status line, Monday brief and OpenTelemetry.
-- **Team server** and the **enterprise preset**, later.
+- **Prove "done":** the done gate, journeys, environments and spec drafting, with the local view, on by default.
+- **Inbox and decisions:** batching, resolvers and the keep-or-remove list.
+- **Parallel sessions:** the session map, heads-ups, dry merges and leases.
+- **Plan usage and readings:** plan windows, tokens per task, speed, time, quality and spend.
+- **Reports:** GitHub statuses, the PR comment, `dr report`, receipts and exports.
+- **Playbooks:** `dr create`, the scheduler and picker, scores and replayed improvements.
+- **Money and infra**, **Keep** (guards, memory, fix reach), **CI**, the **team server** and the **enterprise preset**, later.
 
 ### Taken from pi
 
@@ -91,6 +98,23 @@ export default function (dr) {
 - Packages come from npm or git, pinned to a version. They install at user level, and a project's packages load only after you trust the project, because extensions run as code.
 - Open formats ship as contracts with conformance tests, the way pi publishes its telemetry contracts, so other tools can prove they're compatible.
 - Outside PRs to the core are closed automatically and reviewed in a daily batch, as pi does. Outside work goes into extensions.
+
+### Every use case, on the same four parts
+
+| Use case | What you see | Extension | Core parts it uses | Lands |
+|---|---|---|---|---|
+| "Is it really done?" | A verdict with its proof: journeys, screenshots, the merge base | Prove "done" | Gates, the record, adapters (holding the stop) | R1 |
+| Only what needs you | One count, asks in batches, questions decided for you | Inbox and decisions | Asks, the record | R1 |
+| Your answer reaches the agent | The answer inside the running or idle session | Agent adapters | Adapters (delivery), asks | R1 |
+| Many agents at once | Heads-ups, hard stops, leased ports and accounts | Parallel sessions | The record (the session map), adapters (context and deny), gates | R1 rules, R2 |
+| Plan limits and spend | Each plan's windows, tokens per task, spend | Plan usage and readings | The record (sources) | R2 |
+| Proof others can check | A GitHub status, the PR comment, the report, a receipt | Reports | The record, gates | R1 to R3 |
+| Start an app | A playbook, lanes, scheduling within your plans, the release | Playbooks | Adapters (starting a session), gates, asks, the record | R6 |
+| Money and infra | Bills, findings by dollars, the infra map | Money and infra | The record (sources), gates (cost guards), asks | R2, R3 |
+| Keep it fixed | Guards for whole classes of bugs, memory, fix reach | Keep | Gates (block mode), asks, the record | R4 |
+| CI and teams | CI only when ready, a shared inbox | CI, the team server | Gates, asks, the record | R5, later |
+
+Every use case is an extension on the same four parts, so the core stays small. Parallel sessions and playbooks needed two more extension points, not a fifth part: a hook handler can add context for the agent or deny with a reason, and an extension can start a session through an adapter and register the scheduler that picks the agent, plan and model.
 
 **What we removed.** Fourteen concepts became six, and ten rules became four core invariants plus extension defaults. Profiles became presets, which are lists of extensions with settings. Pushed dashboards and alerts are gone, while `dr view` still shows the whole record when you look. The enterprise track is a preset plus adapters, not a separate product. Each agent's delivery routes moved into its adapter.
 
@@ -245,7 +269,7 @@ The mocks and numbers are illustrative. The same evidence also appears in the PR
 
 **What `dr view` shows.** You open it with three questions: does anything need me, is the work done, and what did it cost. So it has three views, in that order. Only the first ever pushes, and nothing is taken away by keeping the rest quiet: every detail is one click deeper.
 
-- **Needs you:** each ask as one question, the one piece of evidence that answers it, and two buttons. Below it, what's coming in your next batch, and everything decided for you, each with a one-click overrule.
+- **Needs you:** each ask as one question, the one piece of evidence that answers it, and two buttons, or your own words or a screenshot. Below it, what's coming in your next batch, and everything decided for you, each with a one-click overrule.
 - **Work:** every session and change on one line, led by a plain sentence such as "Not done: the receipt shows $18.00". Open one for its verdict and its end-to-end run: how many runs came back clean, a screenshot of each step, and the end state with a highlight of what was checked beside it. Failing and running checks come next; passed checks fold into one line. The video, trace and receipt are one click deeper, and `dr report` puts all of it in one HTML file. The repo's spec is here too.
 - **Numbers:** readings outside their band, or that changed, come first; the rest fold into one line. Money, the infra map and the guards that fired are sections here, and extensions add their own.
 
@@ -570,7 +594,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 **Done gate**
 
-- Your definition of done is drafted from what the repo already runs and what you've asked agents before, and you approve it once. It runs whenever an agent says done or opens a PR. It reads the issue's acceptance criteria, and the verdict decides whether the PR says "Closes" or "Part of". When the agent wrote a plan, the gate runs the plan's proof steps and compares the diff with it.
+- Your definition of done is drafted from what the repo already runs and what you've asked agents before, and you approve it once. Not happy with a line? Say what to change in your own words, in the view or to your agent; it comes back as a diff, and nothing is written until you apply it. It runs whenever an agent says done or opens a PR. It reads the issue's acceptance criteria, and the verdict decides whether the PR says "Closes" or "Part of". When the agent wrote a plan, the gate runs the plan's proof steps and compares the diff with it.
 - The tool owns the proof and gives a verdict. Open items are tracked, and only taste calls come to you.
 - A policy check answers the questions your instruction files and saved decisions already cover, whether the agent stops with a question, asks one or hits a permission prompt.
 
@@ -579,6 +603,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 - `dr env up` starts what the proof needs from your repo's own scripts or compose file, with one stack per worktree on leased ports.
 - It tracks every process it starts and stops only those, by PID. It checks health before the proof runs and tears everything down after.
 - The environment manifest leases test accounts, phone numbers, simulators and screens to one session at a time. Each real resource has a cap, a cooldown and a cost estimate before every run.
+- The setup is learned once, from your scripts and from how past sessions started the stack, so you never tell an agent how again. Credentials are named by variable and source, such as a dotfile or a CLI login, and loaded only into the process that needs them. The agent never sees a value or a path.
 
 **Journeys**
 
