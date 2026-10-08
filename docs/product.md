@@ -583,7 +583,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 - A terminal view for numbers and follow-ups: `dr status`, `dr inbox`, `dr show`.
 - A local web view, `dr view`, for screenshots side by side, one-click answers to taste calls, open items and charts. No hosting.
 - Each verdict is a GitHub commit status that branch protection can require. A PR comment with screenshots and `dr report`, one HTML file per change, follow in R2.
-- `dr status` lists each running agent as working, waiting on a lease, waiting on you, or stuck. Every change, verdict and open item has a three-line plain summary.
+- `dr status` and the Work view list every session from every agent and repo, built for dozens at once: grouped by repo and issue, with what needs you and what's stuck first, and quiet sessions folded into one line. They flag two sessions on one issue, a session an app quit or a usage limit interrupted, and an idle session with work that isn't pushed. Every change, verdict and open item has a three-line plain summary.
 
 **Your time**
 
@@ -596,14 +596,14 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 **Done gate**
 
 - Your definition of done is drafted from what the repo already runs and what you've asked agents before, and you approve it once. Not happy with a line? Say what to change in your own words, in the view or to your agent; it comes back as a diff, and nothing is written until you apply it. It runs whenever an agent says done or opens a PR. It reads the issue's acceptance criteria, and the verdict decides whether the PR says "Closes" or "Part of". When the agent wrote a plan, the gate runs the plan's proof steps and compares the diff with it.
-- The tool owns the proof and gives a verdict. Open items are tracked, and only taste calls come to you.
+- The tool owns the proof and gives a verdict. Open items are tracked, and only taste calls come to you. A claim that stalls, with the same open items twice and no new evidence, stops going back to the agent: it comes to you once, as a decision to split the issue, fund the live runs it needs, or accept what's proven.
 - A policy check answers the questions your instruction files and saved decisions already cover, whether the agent stops with a question, asks one or hits a permission prompt.
 
 **Environment up**
 
 - `dr env up` starts what the proof needs from your repo's own scripts or compose file, with one stack per worktree on leased ports.
 - It tracks every process it starts and stops only those, by PID. It checks health before the proof runs and tears everything down after.
-- The environment manifest leases test accounts, phone numbers, simulators and screens to one session at a time. Each real resource has a cap, a cooldown and a cost estimate before every run.
+- The environment manifest leases test accounts, phone numbers, simulators and screens to one session at a time. Each real resource has a cap, a cooldown and a cost estimate before every run. You approve a spending budget once per issue, with runs, a dollar cap and an end date, and every run inside it goes ahead without asking.
 - The setup is learned once into your wiki, from your scripts and from how past sessions started the stack, so you never tell an agent how again. Credentials are named by variable and source, such as a dotfile or a CLI login, and loaded only into the process that needs them. The agent never sees a value or a path.
 
 **Journeys**
@@ -954,7 +954,7 @@ The release details are in the [roadmap](#proof-of-done-first-then-everything-el
 | First agents | Claude Code and Codex in R1; pi and Cursor in R2 | R1 |
 | Policy limits | Policy answers only reversible, in-scope questions on its own. Anything irreversible, paid or outward-facing still asks you unless an explicit rule covers it. | R1 |
 | Gate mode | Before merge by default. For teams that push to main all day, after merge, with "done" judged at release. | R2 |
-| Live test budget | A monthly cap per real resource that you set. Live journeys run only when asked or before a release. | R1 |
+| Live test budget | A monthly cap per real resource that you set, plus budgets you approve once per issue: runs, a dollar cap and an end date. Runs inside a budget never ask; otherwise live journeys run only when asked or before a release. | R1 |
 | Where configuration evals run | On your machine, or in a lane you dispatch with a budget. Never on every push in hosted CI, since each run makes paid model calls. | R4 |
 | Memory | One local wiki, compiled from your history and each agent's memory, every line with its source. Agents read it and propose changes; they never write it. Search over it is an extension, so its index can be swapped without losing anything. | R1 wiki, R4 memory |
 | Subscriptions | Used only through the unmodified Claude Code and Codex on your own sign-in. DoneRight never holds credentials or routes requests through a plan. Hooks, held stops and sessions you asked for are ordinary use; each scheduled automation it starts on its own is capped or moved to an API key. | Done |
