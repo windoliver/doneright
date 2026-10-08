@@ -25,7 +25,7 @@ npm link     # puts `dr` on your PATH
 dr setup
 ```
 
-Run `dr setup` once per machine, from any folder. There's nothing to run per repo.
+Run `dr setup` once per machine, from any folder, or open the DoneRight app: its first run is the same setup, with the progress, the questions as cards and the changes to each agent shown before one click. There's nothing to run per repo.
 
 1. It reads your Claude Code and Codex history on your machine and writes what it learned into your wiki, `~/.doneright/wiki/`: the checks you keep asking for, how your stacks start, where credentials live (names only, never values) and the rules you've given agents. Every line names its source. It asks only where your history disagrees, at most five questions, each with the evidence on both sides and a recommended answer. A skipped one waits until an agent starts work it affects. A few one-time settings come with defaults already chosen.
 2. It shows the exact hook entries it will add, at user level, for Claude Code and Codex. It merges with hooks you already have, and writes nothing until you say yes.
@@ -35,7 +35,7 @@ Run it again any time to re-learn. It reads only what it hasn't seen. New facts 
 
 - **Codex** asks you to approve new hooks once. Open Codex and approve them in `/hooks`.
 - **Your existing hooks** keep working. `dr doctor` reports any other hook-based tool it finds and the order hooks run in.
-- **Remove it** with `dr setup --undo`, which removes everything `dr setup` added. For a quick pause, `dr off` makes every gate watch-only, and `dr on` turns them back on.
+- **Remove it** with `dr setup --undo`, or Remove from agents in the app's Settings, which removes everything setup added. For a quick pause, `dr off` makes every gate watch-only, and `dr on` turns them back on.
 
 ## What "done" means, drafted for you
 

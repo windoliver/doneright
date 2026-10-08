@@ -114,8 +114,10 @@ flowchart TD
   T5 --> T23
   T11 --> T23
   T17 --> T23
+  T8 --> T24
   T23 --> T24
   T34 --> T24
+  T42 --> T24
   T48 --> T24
   T5 --> T25
   T33 --> T25
@@ -236,13 +238,13 @@ flowchart TD
 | #32 | Done gate: specs, issue criteria, plan proof, open items and project trust | R1 | #3 | #22, #25, #29, #31 |
 | #33 | End-to-end: block a false done, pass the real fix, gate this repo | R1 | #3 | #32, #48 |
 | #34 | App API and live stream on the hub's socket | R1 | #4 | #16, #22, #28 |
-| #35 | The app: Needs you, Work and Numbers | R1 | #4 | #34, #45, #60 |
+| #35 | The app: Needs you, Work and Numbers | R1 | #4 | #19, #34, #45, #54, #60 |
 | #36 | Environment: dr env up with leased ports and PID tracking | R1 | #4 | #16, #44 |
 | #37 | Journeys: Playwright, end-state checks, evidence and a feature list | R1 | #4 | #15, #29, #36, #31 |
 | #38 | End-to-end: journey evidence in the app, taste call answered there | R1 | #4 | #25, #35, #37, #48 |
 | #39 | Codex adapter: hooks, trust step and Stop hold delivery | R1 | #5 | #17, #22, #29, #47 |
 | #40 | pi package: in-process client, native tools and sendUserMessage delivery | R2 | #6 | #22, #29, #44, #47 |
-| #41 | Packaging: npm, prebuilt dr-hook, Claude Code plugin and dr setup | R2 | #6 | #18, #39, #40, #44 |
+| #41 | Packaging: the app download, npm, prebuilt dr-hook, Claude Code plugin and dr setup | R2 | #6 | #18, #39, #40, #44 |
 | #42 | OTLP receiver for agent telemetry | R2 | #6 | #14 |
 | #43 | Dogfood week and Decision 1 numbers | R1 | #5 | #33, #38, #39, #45, #50 |
 | #54 | Your wiki: what setup learns, with sources, and questions only where history disagrees | R1 | #5 | #14, #19, #20, #26, #44, #47 |
