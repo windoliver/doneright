@@ -22,19 +22,24 @@ Version 0 runs from a checkout of this repo and needs Node 22.19 or newer and Ru
 git clone https://github.com/windoliver/doneright && cd doneright
 npm install && npm run build
 npm link     # puts `dr` on your PATH
-cd ~/code/your-app
-dr init
+dr setup
 ```
 
-`dr init` shows the exact hook entries it will add, at user level, for Claude Code and Codex. It merges with hooks you already have, and writes nothing until you say yes. Run inside a repo, it then drafts that repo's checks, as the next section describes.
+Run `dr setup` once per machine, from any folder. There's nothing to run per repo.
+
+1. It reads your Claude Code and Codex history on your machine and writes what it learned into your wiki, `~/.doneright/wiki/`: the checks you keep asking for, how your stacks start, where credentials live (names only, never values) and the rules you've given agents. Every line names its source. It asks only where your history disagrees, at most five questions, each with the evidence on both sides and a recommended answer. A skipped one waits until an agent starts work it affects. A few one-time settings come with defaults already chosen.
+2. It shows the exact hook entries it will add, at user level, for Claude Code and Codex. It merges with hooks you already have, and writes nothing until you say yes.
+3. Nothing else. Each repo's checks are drafted later, from the wiki and the repo, as the next section describes.
+
+Run it again any time to re-learn. It reads only what it hasn't seen. New facts go into the wiki, and a change to what decides "done" reaches you as a proposal.
 
 - **Codex** asks you to approve new hooks once. Open Codex and approve them in `/hooks`.
 - **Your existing hooks** keep working. `dr doctor` reports any other hook-based tool it finds and the order hooks run in.
-- **Remove it** with `dr init --undo`, which removes everything `dr init` added. For a quick pause, `dr off` makes every gate watch-only, and `dr on` turns them back on.
+- **Remove it** with `dr setup --undo`, which removes everything `dr setup` added. For a quick pause, `dr off` makes every gate watch-only, and `dr on` turns them back on.
 
 ## What "done" means, drafted for you
 
-Each repo's checks live in `.doneright/done.yaml` ([#32](https://github.com/windoliver/doneright/issues/32)), but you don't write it. Run inside a repo, `dr init` drafts it from what the repo already says ([#50](https://github.com/windoliver/doneright/issues/50)):
+Each repo's checks live in `.doneright/done.yaml` ([#32](https://github.com/windoliver/doneright/issues/32)), but you don't write it. `dr setup` drafts it for each repo in your agent history, from what the repo already says ([#50](https://github.com/windoliver/doneright/issues/50)):
 
 | Source | What it gives |
 |---|---|
@@ -44,9 +49,9 @@ Each repo's checks live in `.doneright/done.yaml` ([#32](https://github.com/wind
 | Playwright or Cypress suites | The journeys you already have |
 | Your past sessions in this repo | The checks you kept asking agents about |
 
-Nothing runs until you trust the project. Then each candidate runs once in a clean environment, and one that runs zero tests, can't start or already fails is shown with its reason and left out. You approve the draft once, keeping, dropping or editing each line. `dr` writes `.doneright/`, and you commit it like any other change.
+Nothing runs in a repo you haven't trusted. Claude Code and Codex already record which folders you trust, and DoneRight reuses that, so setup asks nothing per repo. In each trusted repo, every candidate runs once in the background, in a clean environment, and one that runs zero tests, can't start or already fails is shown with its reason and left out. A repo neither agent trusts waits until you trust it.
 
-If an agent works in a repo where you haven't run `dr init`, the draft waits in your inbox as one approval. Until you answer, verdicts there are watch-only.
+Each draft reaches your inbox when an agent starts work in its repo, with its checks already run. You approve it once, keeping, dropping or editing each line. `dr` writes `.doneright/`, and you commit it like any other change. A repo you start after setup gets its draft the same way. Until you approve, verdicts there are watch-only. To see a repo's spec, draft one now, or change it in your own words, run `dr spec` in that repo.
 
 **It keeps itself current.**
 
@@ -217,7 +222,7 @@ Each verdict posts a commit status named `doneright/verdict` ([#46](https://gith
 | Something seems off | Run `dr doctor`. It checks hooks, ports, disk, sign-ins and token lifetimes, and names the fix. |
 | DoneRight is in the way | Run `dr off`. Every gate becomes watch-only at once; `dr on` restores them. |
 | The hub isn't running | Agents keep working: hooks let actions through when the hub is down. The default safety rules still block, such as killing processes by name. |
-| A check you expected isn't in the draft | `dr init` lists what it found and why it left anything out. Add the check in the edit step, or ask your agent to propose it. |
+| A check you expected isn't in the draft | `dr spec` lists what it found and why it left anything out. Say what to add in your own words, or ask your agent to propose it. |
 | A check is `INVALID` with zero tests | The command ran but no tests executed. Check its filter or path. |
 | A check is `BLOCKED` | `dr show <id>` names the missing piece and its owner. |
 | You want to report a bug | Run `dr debug bundle`. It writes a redacted bundle of logs, versions and doctor output to attach to an issue. |
@@ -229,6 +234,7 @@ Each verdict posts a commit status named `doneright/verdict` ([#46](https://gith
 | The record | `~/.doneright/ledger.db` | An append-only SQLite event log |
 | Evidence | `~/.doneright/evidence/` | Screenshots, video and traces, named by content hash; kept 30 days unless a decision cites them |
 | Transcript archive | `~/.doneright/archive/` | Copies of agent transcripts, saved before the agents' own cleanup deletes them |
-| Repo specs | `.doneright/` in each repo | Drafted by `dr init`, approved by you and reviewed like code; agents can't edit them |
+| Your wiki | `~/.doneright/wiki/` | Markdown pages of what DoneRight learned, every line with its source. Edit them freely; your edits are kept. Agents read them and propose changes, but never write them |
+| Repo specs | `.doneright/` in each repo | Drafted by `dr setup`, approved by you and reviewed like code; agents can't edit them |
 
 Keys and tokens are redacted on the way in. Nothing leaves your machine unless you install and turn on an extension that syncs.

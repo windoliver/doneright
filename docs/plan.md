@@ -49,6 +49,7 @@ flowchart TD
   subgraph E5["#5 Codex, spec drafting and dogfooding R1 week …"]
     T28["#39 Codex adapter"]
     T32["#43 Dogfood week and Decision 1 numbers"]
+    T42["#54 Your wiki"]
     T39["#50 Spec drafting"]
   end
   subgraph L1["#6 R2 · Find, and trust the numbers"]
@@ -58,6 +59,7 @@ flowchart TD
     T38["#49 PR comment and dr report"]
     T40["#52 Parallel sessions"]
     T41["#53 Plan usage"]
+    T43["#55 paseo adapter"]
   end
   T1 --> T2
   T1 --> T3
@@ -136,11 +138,18 @@ flowchart TD
   T28 --> T32
   T34 --> T32
   T39 --> T32
+  T3 --> T42
+  T8 --> T42
+  T9 --> T42
+  T15 --> T42
+  T33 --> T42
+  T36 --> T42
   T8 --> T39
   T15 --> T39
   T21 --> T39
   T26 --> T39
   T34 --> T39
+  T42 --> T39
   T2 --> T33
   T5 --> T33
   T7 --> T34
@@ -161,11 +170,16 @@ flowchart TD
   T28 --> T41
   T34 --> T41
   T36 --> T41
+  T12 --> T43
+  T15 --> T43
+  T21 --> T43
+  T33 --> T43
+  T37 --> T43
 ```
 
 ## Later releases
 
-- #6 R2 · Find, and trust the numbers — blocked by #3; tasks so far: #40, #41, #42, #49, #52, #53
+- #6 R2 · Find, and trust the numbers — blocked by #3; tasks so far: #40, #41, #42, #49, #52, #53, #55
 - #7 R3 · Change with proof — blocked by #6
 - #8 R4 · Keep — blocked by #7
 - #9 R5 · CI — blocked by #1, #6
@@ -184,7 +198,7 @@ flowchart TD
 | #16 | Hub daemon on a Unix socket | R1 | #1 | #14 |
 | #17 | dr-hook: Rust hook client with fail-open and fast rules | R1 | #1 | #13, #16 |
 | #18 | Claude Code adapter, watch-only: sessions, tool calls and commits | R1 | #1 | #16, #17, #44, #47 |
-| #19 | CLI basics: init, status, doctor, off and on, debug bundle | R1 | #1 | #16, #18 |
+| #19 | CLI basics: setup, status, doctor, off and on, debug bundle | R1 | #1 | #16, #18 |
 | #20 | Transcript archive for Claude Code, Codex and pi | R1 | #1 | #14, #15, #44 |
 | #21 | End-to-end: hook overhead and fail-open under real sessions | R1 | #1 | #17, #18, #48 |
 | #22 | Asks: kinds, batching, daily cap and the inbox | R1 | #2 | #14 |
@@ -206,10 +220,11 @@ flowchart TD
 | #38 | End-to-end: journey evidence in the view, taste call answered there | R1 | #4 | #25, #35, #37, #48 |
 | #39 | Codex adapter: hooks, trust step and Stop hold delivery | R1 | #5 | #17, #22, #29, #47 |
 | #40 | pi package: in-process client, native tools and sendUserMessage delivery | R2 | #6 | #22, #29, #44, #47 |
-| #41 | Packaging: npm, prebuilt dr-hook, Claude Code plugin and dr init | R2 | #6 | #18, #39, #40, #44 |
+| #41 | Packaging: npm, prebuilt dr-hook, Claude Code plugin and dr setup | R2 | #6 | #18, #39, #40, #44 |
 | #42 | OTLP receiver for agent telemetry | R2 | #6 | #14 |
 | #43 | Dogfood week and Decision 1 numbers | R1 | #5 | #33, #38, #39, #45, #50 |
-| #50 | Spec drafting: find the checks a repo already runs, prove they work, ask once | R1 | #5 | #19, #26, #32, #37, #45 |
+| #54 | Your wiki: what setup learns, with sources, and questions only where history disagrees | R1 | #5 | #14, #19, #20, #26, #44, #47 |
+| #50 | Spec drafting: find the checks a repo already runs, prove they work, ask once | R1 | #5 | #19, #26, #32, #37, #45, #54 |
 | #44 | Extension host and the extension API | R1 | #1 | #13, #16 |
 | #45 | Readings: your time, agent spend and lifecycle numbers | R1 | #4 | #18, #20, #44 |
 | #46 | GitHub: verdicts as commit statuses | R1 | #3 | #15, #32 |
@@ -218,3 +233,4 @@ flowchart TD
 | #49 | PR comment and dr report | R2 | #6 | #46, #35 |
 | #52 | Parallel sessions: a session map, notices to each agent, and dry merges | R2 | #6 | #18, #36, #39, #48 |
 | #53 | Plan usage: each account's windows and every task's tokens | R2 | #6 | #18, #39, #45, #47 |
+| #55 | paseo adapter: the done gate, policy answers and Needs you for agents run through paseo | R2 | #6 | #23, #26, #32, #44, #48 |

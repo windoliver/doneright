@@ -10,7 +10,7 @@ Writing code is cheap now. Knowing a change is right is the bottleneck. In a 30-
 ## Highlights
 
 - **Proof, not promises.** When an agent claims "done", "fixed" or "no visible change", DoneRight runs the checks itself. A fix counts only if its check fails on the old code and passes on yours.
-- **No config to write.** `dr init` drafts each repo's checks from what's already there: CI, package scripts, `AGENTS.md`, and the checks you kept asking agents about. It runs each one once and asks you to approve. Agents propose the rest, such as a journey for a page they change.
+- **No config to write.** `dr setup`, run once per machine, drafts each repo's checks from what's already there: CI, package scripts, `AGENTS.md`, and the checks you kept asking agents about. It runs each one once and asks you to approve. Agents propose the rest, such as a journey for a page they change.
 - **Five honest verdicts.** `PASS`, `FAIL`, `INCONCLUSIVE`, `BLOCKED` and `INVALID`. A skipped or unrun check is never green.
 - **Only what needs you.** Taste calls, approvals, and blocks only you can clear land in one inbox. Answers you've given before are reused, and your answer goes straight back into the agent's running session.
 - **Real surfaces.** Browser journeys run on your real local stack, with video and screenshots as evidence. Ports, test accounts and devices are leased per session, so parallel agents don't collide.
@@ -27,31 +27,48 @@ Version 0 runs from a checkout and needs Node 22.19 or newer and Rust. The npm p
 git clone https://github.com/windoliver/doneright && cd doneright
 npm install && npm run build
 npm link     # puts `dr` on your PATH
-cd ~/code/your-app
-dr init      # adds the hooks, then drafts what "done" means for this repo
+dr setup     # once per machine: learns from your agent history, adds the hooks, drafts each repo's checks
 dr doctor    # checks the hooks, ports, disk and sign-ins
 ```
 
-You don't write any config. `dr init` reads what your repo already says, runs each check it finds once, and asks you once:
+You don't write any config, and there's nothing to run in each repo. `dr setup` reads your agent history and writes what it learned into a local wiki, every line with its source. It asks only what your history leaves unclear:
 
 ```text
-$ dr init
+$ dr setup
+Read 212 sessions and 64 notes on this machine, in 3 repos: shop, api, docs.
+Wrote your wiki: ~/.doneright/wiki, 38 pages. Every line names its source.
+3 things weren't clear:
+1  api starts two ways in your history. Which should agents use?
+     a  docker compose up api   since Sep 12 · 14 sessions · recommended
+     b  npm run dev             before Sep 12 · 9 sessions
+   [a/b/other/skip] a
+2  Before/after screenshots on UI changes: you asked 41 times in shop, never on hotfix branches.
+   Ask on hotfixes too? [y/N/skip] n
+3  STRIPE_TEST_KEY came from ~/.config/shop/stripe.env 30 times and from your shell twice.
+   Always use the file? [Y/n/skip] y
 Add hooks for Claude Code and Codex at user level? [y/N/diff] y
-Trust ~/code/shop and draft what "done" means here? [y/N] y
+✓ Set up. Agents read your wiki when they start. Each repo's checks come to you when an agent starts work there.
+```
 
-Read CI, package.json, CLAUDE.md and your past sessions here. Ran each check once:
+Setup doesn't touch any repo. When an agent starts work in `~/code/shop`, its checks, drafted from the wiki and the repo and run once in the background, reach your inbox:
+
+```text
+Approve the drafted spec for ~/code/shop
+Read CI, package.json, CLAUDE.md and your past sessions there. Ran each check once:
   unit        npm test              from ci.yml                     214 tests, 38 s
   typecheck   npm run typecheck     from ci.yml                     passed, 12 s
   lint        npm run lint          CLAUDE.md: "lint before done"   passed, 4 s
   e2e         npx playwright test   you asked about it 14 times     3 journeys, 71 s
   app         npm run dev           web on a leased port            ready at /health, 9 s
-Write .doneright/done.yaml? [Y/n/edit] y
-Wrote .doneright/. Commit it with your next change.
+  left out    npm run test:visual   from package.json               ran 0 tests
+Approve · Edit lines · Change it in your own words
 ```
+
+Approve it once, and `dr` writes `.doneright/` for you to commit. Until then, verdicts in that repo are watch-only.
 
 *The output is illustrative.*
 
-From then on, the spec keeps itself current. A new CI step becomes a proposed change, and an agent that changes a page with no journey is asked to propose one. Each proposal reaches you once, and agents can't change the checks themselves.
+From then on, the spec keeps itself current. A new CI step becomes a proposed change, and an agent that changes a page with no journey is asked to propose one. Each proposal reaches you once, and agents can't change the checks themselves. To see a repo's spec or change it in your own words, run `dr spec` there.
 
 Work as usual. When an agent says it's done or opens a PR, DoneRight steps in. These commands show what happened:
 
@@ -163,7 +180,7 @@ We borrow from all four. The details are in [the product doc](docs/product.md#wh
 
 **Does it need an SDK?** No. It reads what agents and apps already record: transcripts, hooks, OpenTelemetry, your app's own tables and vendor usage APIs.
 
-**Do I have to write `done.yaml`?** No. `dr init` drafts it from your CI, scripts and instruction files, and agents propose journeys as they work. You approve each draft once, and you can still edit the file by hand.
+**Do I have to write `done.yaml`?** No. `dr setup` drafts it from your CI, scripts and instruction files for every repo in your agent history, and a repo you start later gets its draft when an agent starts work there. Agents propose journeys as they work. You approve each draft once, and you can still edit the file by hand.
 
 **Does it send my code or transcripts anywhere?** No. Nothing leaves your machine unless you install and turn on an extension that syncs.
 
@@ -171,7 +188,7 @@ We borrow from all four. The details are in [the product doc](docs/product.md#wh
 
 **Does it replace CI?** For many projects it can. Verdicts are commit statuses that branch protection can require, so CI isn't needed just to prove a change.
 
-**What if it gets in my way?** `dr off` makes every gate watch-only at once, and `dr init --undo` removes everything it installed.
+**What if it gets in my way?** `dr off` makes every gate watch-only at once, and `dr setup --undo` removes everything it installed.
 
 **Why "DoneRight"?** Because "done" isn't enough.
 
