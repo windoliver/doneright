@@ -62,6 +62,8 @@ flowchart TD
     T40["#52 Parallel sessions"]
     T41["#53 Plan usage"]
     T43["#55 paseo adapter"]
+    T46["#58 Mac app"]
+    T47["#59 dr extend"]
   end
   T1 --> T2
   T1 --> T3
@@ -184,11 +186,17 @@ flowchart TD
   T21 --> T45
   T24 --> T45
   T26 --> T45
+  T11 --> T46
+  T23 --> T46
+  T24 --> T46
+  T33 --> T47
+  T36 --> T47
+  T37 --> T47
 ```
 
 ## Later releases
 
-- #6 R2 · Find, and trust the numbers — blocked by #3; tasks so far: #40, #41, #42, #49, #52, #53, #55
+- #6 R2 · Find, and trust the numbers — blocked by #3; tasks so far: #40, #41, #42, #49, #52, #53, #55, #58, #59
 - #7 R3 · Change with proof — blocked by #6
 - #8 R4 · Keep — blocked by #7
 - #9 R5 · CI — blocked by #1, #6
@@ -245,3 +253,5 @@ flowchart TD
 | #55 | paseo adapter: the done gate, policy answers and Needs you for agents run through paseo | R2 | #6 | #23, #26, #32, #44, #48 |
 | #56 | Spike: Effect 4 or plain TypeScript for the hub core | R1 | #1 | #12 |
 | #57 | Project map: each part's sessions, issues and evidence (Work → Map, dr map) | R1 | #4 | #14, #19, #32, #35, #37 |
+| #58 | Mac app: what needs you, on a line under the menu bar | R2 | #6 | #22, #34, #35 |
+| #59 | dr extend: an extension from one sentence, written by your agent and tested before install | R2 | #6 | #44, #47, #48 |

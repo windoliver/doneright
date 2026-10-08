@@ -96,6 +96,7 @@ export default function (dr) {
 - Strong defaults and a small core. A feature that isn't the core's one job ships as a package.
 - One record behind every interface. The terminal, local view, MCP tools and hooks all call the same core.
 - Packages come from npm or git, pinned to a version. They install at user level, and a project's packages load only after you trust the project, because extensions run as code.
+- The extension API has one test of whether it's simple enough: given only its docs, Claude Code and Codex each write a working email monitor from one sentence, on the first try.
 - Open formats ship as contracts with conformance tests, the way pi publishes its telemetry contracts, so other tools can prove they're compatible.
 - Outside PRs to the core are closed automatically and reviewed in a daily batch, as pi does. Outside work goes into extensions.
 
@@ -643,6 +644,8 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 - The pi adapter, then Cursor.
 - A clean install through npm with prebuilt binaries and a Claude Code plugin.
+- A small Mac app: what needs you hangs on a line under the menu bar, answerable right there, with one count in the menu bar, notifications that carry the answers, and the hub at login. The web view stays the full UI.
+- `dr extend`: describe an extension in a sentence, such as "watch the receipts inbox and tell me when a receipt bounces". Your agent writes it, DoneRight tests it and shows what it can and can't touch, and it installs after your yes.
 - A PR comment with the verdict and screenshots, and `dr report`, one HTML file per change.
 
 **Infra cost**
@@ -952,6 +955,7 @@ The release details are in the [roadmap](#proof-of-done-first-then-everything-el
 | Extension trust | Extensions run as code. They install at user level and are pinned to a version. A project's extensions load only after you trust the project. | R1 |
 | Language | TypeScript on Node for the core, extensions, local view, MCP server and team server. Extensions load in-process as TypeScript modules, the way pi's do, and everything around the product (MCP, Playwright, agent plugins, Cloudflare Workers) is TypeScript too. The one native piece is the hook client, a tiny Rust binary that forwards each hook call to the running hub and allows the action if the hub is down, because hooks run on every tool call. Rust comes in elsewhere only where profiling shows a need, as a native module. Contracts are JSON Schemas with conformance tests and a JSON-RPC mode, so extensions in any language can run out of process. Effect 4 is decided by a one-day spike before the hub is built: if it passes, it's used only inside the hub core, and the CLI, the extension API, contracts and storage stay plain TypeScript. | R1 |
 | Receipt format | Build on an existing attestation standard (in-toto or SLSA) so CI and deploy tools can verify it | R3 |
+| Local app | The web view is the one UI: the hub serves it, and reports, extensions and the team server share it. A small native Mac app, built in Swift like tendedero, adds the line under the menu bar, the count, notifications with answers, and the hub at login. A cross-platform shell, built with Tauri like cc-switch, comes when Windows or Linux users need it. GPUI (gpui-kit) was considered, for a heavy native workbench later. | R2 |
 | Hosted app | Not in v1. Terminal, local view and report files first. The team server is the same app plus a push-only sync, content-free by default: self-hosted with Docker, or on Cloudflare for a small team, and in the customer's own cloud for an enterprise. Only after Decision 2. | Decision 2 |
 | FinOps scope | Infra cost for the vendors you use in R2 and R3. Billing emails, every other vendor and commitments come after Decision 2. | R2 |
 | License | Apache-2.0; decide later whether a paid enterprise or team version is worth building | R1 |
