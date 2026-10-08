@@ -75,7 +75,7 @@ Work as usual. When an agent says it's done or opens a PR, DoneRight steps in. T
 ```bash
 dr status    # every running session, and every verdict
 dr inbox     # only the things that need you
-dr view      # the local view: screenshots side by side, evidence, decisions
+dr open      # the DoneRight app: screenshots side by side, evidence, decisions
 dr off       # escape hatch: every gate becomes watch-only at once (dr on to undo)
 ```
 
@@ -104,7 +104,7 @@ verdicts   PASS 12   FAIL 2   INCONCLUSIVE 1   BLOCKED 1
 inbox      2 taste calls · 1 approval
 
 $ dr inbox
-1  taste      checkout button moved 8px left       → dr view 1
+1  taste      checkout button moved 8px left       → dr open 1
 2  approval   live payment test, about $0.40        yes / no
 3  unblock    test account sign-in expired          owner: you
 ```
@@ -146,7 +146,7 @@ flowchart LR
     R[Record] --- G[Gates] --- K[Asks] --- AD[Adapters]
   end
   HUB --- X[Extensions: spec drafting, done gate, journeys, environments, resolvers, GitHub]
-  You((You)) -- dr inbox · dr view --> HUB
+  You((You)) -- dr inbox · the app --> HUB
 ```
 
 - **The record** is an append-only event log plus a folder of evidence, named by content hash.
@@ -158,8 +158,8 @@ The [technical design](docs/technical-design.md) covers the architecture, data m
 
 ## Security and privacy
 
-- Everything stays on your machine. The local view listens only on `127.0.0.1`, with a new token each launch.
-- Answers reach an agent as instructions, so only you can give them: from the CLI or the local view, never from a web page or tool output.
+- Everything stays on your machine. The app and the CLI reach the hub over a local socket with a new token each launch, and the hub refuses any request from a browser page.
+- Answers reach an agent as instructions, so only you can give them: from the CLI or the app, never from a web page or tool output.
 - Hooks install at user level only, never into a repo's settings. A repo's `.doneright/` specs, and the commands a draft tries, run only after you trust the project.
 - Agents can't edit checks, expected outputs or your decisions. What they propose decides nothing until you approve it.
 - Transcripts and evidence are redacted for keys and tokens as they come in.
@@ -196,7 +196,7 @@ We borrow from all four. The details are in [the product doc](docs/product.md#wh
 
 | Release | Due | What it adds |
 |---|---|---|
-| [R1](https://github.com/windoliver/doneright/milestone/1) | Nov 8, 2026 | Proof of "done" for Claude Code and Codex, specs drafted for you, the inbox, the local view, browser journeys |
+| [R1](https://github.com/windoliver/doneright/milestone/1) | Nov 8, 2026 | Proof of "done" for Claude Code and Codex, specs drafted for you, the inbox, the app, browser journeys |
 | [R2](https://github.com/windoliver/doneright/milestone/2) | Dec 6, 2026 | Trustworthy numbers, after-merge mode, pi, npm packages, PR comments and `dr report` |
 | [R3](https://github.com/windoliver/doneright/milestone/3) | Jan 17, 2027 | Receipts, proof caching, tests that must bite, merged to released to checked live |
 | [R4](https://github.com/windoliver/doneright/milestone/4) | Feb 21, 2027 | Guards for whole failure classes, team guards, memory and policy |

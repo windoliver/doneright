@@ -1,6 +1,6 @@
 # DoneRight: technical design
 
-> Version 0 is one TypeScript process per user, the hub, plus a tiny Rust hook client that every agent hook calls. The hub owns the record: an append-only SQLite event log and a folder of evidence named by content hash. It runs gates that turn an agent's claim into one of five verdicts, and routes asks to you only when a person is needed. It delivers your answers back into running sessions through each agent's adapter. Extensions load into the hub as TypeScript modules, the way pi loads its own. Everything ships through npm, runs on your machine, and sends nothing anywhere by default.
+> Version 0 is one TypeScript process per user, the hub, plus a tiny Rust hook client that every agent hook calls, and the DoneRight app, one native desktop app where you see and answer what needs you. The hub owns the record: an append-only SQLite event log and a folder of evidence named by content hash. It runs gates that turn an agent's claim into one of five verdicts, and routes asks to you only when a person is needed. It delivers your answers back into running sessions through each agent's adapter. Extensions load into the hub as TypeScript modules, the way pi loads its own. The hub and the CLI ship through npm and the app as a signed download. Everything runs on your machine and sends nothing anywhere by default.
 
 The product, its reasoning and the roadmap are in the [product doc](./product.md). This page covers how version 0 (release R1, October 5 to November 8) is built. The code, the issues and the Markdown copy of both docs live in [windoliver/doneright](https://github.com/windoliver/doneright).
 
@@ -14,7 +14,7 @@ The product, its reasoning and the roadmap are in the [product doc](./product.md
 - **Your wiki:** `dr setup` writes what it learns from your history as markdown pages, every line with its source, and asks only where your history disagrees. Agents read a short slice when they start and search the rest, through an index any extension can replace.
 - **Checks:** shell commands and browser journeys with Playwright.
 - **Asks:** the inbox, a resolver that reuses your saved decisions, and delivery back into sessions.
-- **Surfaces:** the CLI, the local view and the MCP tools.
+- **Surfaces:** the CLI, the app (built with gpui-kit, after a two-day spike) and the MCP tools.
 - **Readings:** your time and agent spend from transcripts, plus lifecycle numbers from git and GitHub, enough to judge Decision 1.
 - **Verdicts on GitHub:** a commit status that branch protection can require. The PR comment and `dr report` follow in R2.
 - **Environment:** `dr env up` with leases on ports, test accounts, phone numbers, simulators and screens, each with a cap and a cooldown. Processes are tracked by PID.
@@ -51,7 +51,7 @@ flowchart LR
   CX -- MCP stdio --> MCP
   MCP -- Unix socket --> HUB
   CLI[dr CLI] -- Unix socket --> HUB
-  VIEW[Local view · browser] -- HTTP 127.0.0.1 + token --> HUB
+  APP[DoneRight app · Rust, gpui-kit] -- Unix socket + launch token --> HUB
   subgraph HUB[dr hub · TypeScript on Node]
     CORE[Core: record, gates, asks, adapter registry]
     EXT[Extension host: TS modules in-process, JSON-RPC out of process]
@@ -64,12 +64,11 @@ flowchart LR
 
 | Component | What it does | Runs as |
 |---|---|---|
-| dr hub | The only writer to the record. It hosts the core and the extensions, serves the local view, schedules check runs, holds leases, and tracks every process it starts so it can stop them by PID. It starts on demand and is safe to restart, because every consumer keeps its position in the event log. | One long-running Node process per user, listening on `~/.doneright/hub.sock` (mode 0600) |
+| dr hub | The only writer to the record. It hosts the core and the extensions, serves the app and the CLI over its socket with a new token each launch, schedules check runs, holds leases, and tracks every process it starts so it can stop them by PID. It starts on demand and is safe to restart, because every consumer keeps its position in the event log. | One long-running Node process per user, listening on `~/.doneright/hub.sock` (mode 0600) |
 | dr-hook | Called by every agent hook. It reads the hook's JSON from stdin and adds the agent name and event. It forwards that to the hub and prints the hub's reply. If the hub isn't running, it applies the local fast rules in `~/.doneright/rules.json` and otherwise allows the action, so a stopped hub never blocks your agents. Rules marked fail-closed still block. The defaults are no killing processes by name or port, and no CI workflow dispatch without approval. | A Rust binary of a few hundred lines, started once per hook call |
-| dr app (macOS, R2) | A small native Swift app (AppKit and SwiftUI). What needs you hangs on a line under the menu bar and is answered in place; the menu bar shows one count; notifications carry the answers; the hub starts at login; a shortcut shows the line; and Open in Claude or Codex uses the apps' own links. It talks only to the hub's HTTP API with the launch token, and an extension hangs a card through the ask API. It is signed and notarized, and sends nothing off the Mac. | Swift, resident |
-| dr CLI | `dr status`, `dr inbox`, `dr show`, `dr view`, `dr run`, `dr env up`, `dr doctor`, `dr setup`, `dr spec` and `dr install`. `dr off` turns every gate into watch-only at once, as an escape hatch, and `dr debug bundle` writes a redacted bundle for bug reports. When the hub is down, read commands open the database read-only. | Node, short-lived |
+| DoneRight app | One native desktop app: native on macOS, and the same app on Windows and Linux later. In R1 its window has three views, Needs you, Work (with a List \| Map switch) and Numbers; the menu bar shows one count; notifications carry the answers; and the hub starts at login. In R2 what needs you also hangs on a line under the menu bar, shown when the pointer rests at the top edge or with a shortcut, and answered in place. Open in Claude or Codex uses the apps' own links. It talks only to the hub's app API, over the socket with the launch token. Extension panels are JavaScript, run by gpui-shell with only the capabilities each one declared, and an extension hangs a card through the ask API. Reports open in its webview. It is signed and notarized, and sends nothing off the machine. A two-day spike comes first; see [Open questions](#decisions-still-to-make). | Rust · gpui-kit, resident |
+| dr CLI | `dr status`, `dr inbox`, `dr show`, `dr open`, `dr run`, `dr env up`, `dr doctor`, `dr setup`, `dr spec` and `dr install`. `dr off` turns every gate into watch-only at once, as an escape hatch, and `dr debug bundle` writes a redacted bundle for bug reports. When the hub is down, read commands open the database read-only. | Node, short-lived |
 | dr mcp | The MCP server agents call: ask, wait, add an open item, run a check, declare a claim, attach evidence, start the environment. It forwards each call to the hub. | One stdio process per agent session |
-| Local view | A static web app the hub serves with its JSON API and a live event stream. | Preact, built with Vite, served on 127.0.0.1 with a new token each launch |
 | Extensions | Everything beyond the core, including the done gate, journeys, resolvers and adapters. TypeScript modules load into the hub. Other languages run out of process over JSON-RPC on stdio, like pi's RPC mode. | In the hub, or as child processes |
 
 Everything lives under `~/.doneright/`: `config.json`, `ledger.db`, `wiki/`, `evidence/`, `rules.json`, `extensions/`, `archive/` and `logs/`. Per-repo specs live in the repo under `.doneright/`, so they're reviewed like code, and a guard stops agents from editing them.
@@ -169,7 +168,8 @@ export default function (dr: DR) {
   dr.registerResolver(resolver)      // resolver(ask) → { answer, because } | undefined
   dr.registerSource(name, reader)    // reader(cursor) → { events[], cursor }
   dr.registerEnvironment(name, env)  // env.up(spec, lease) → handle · env.down(handle)
-  dr.registerView(name, panel)       // a panel in the local view, or an export
+  dr.registerView(name, panel)       // a JavaScript panel in the app, hosted by gpui-shell
+                                     // with the capabilities it declared, or an export
   dr.registerAdapter(name, adapter)  // install(), mapHook(), deliver(answer, session), start(task)
                                      // adapter.caps: { holdStop, wakeIdle, steer, answerPermission, nativeTools, mcp }
                                      // start(task) → a driven session: startTurn · steer · interrupt · respond(permission) · history() · handle
@@ -182,7 +182,11 @@ export default function (dr: DR) {
 }
 ```
 
-`dr extend "…"` writes an extension from one sentence. The user's own agent runs headless with the extension guide, the examples and the conformance kit, and writes a package with a manifest of what it may touch: hosts, credentials by name, schedules, panels and cards. DoneRight runs the conformance suite, the package's own tests, and a dry run on recent recorded data. It then shows one approval: what the extension can do, what it can't, and a capability it asked for that the sentence doesn't need. It installs pinned at user level after your yes. The API's own acceptance test is the same flow: given only the docs, Claude Code and Codex each turn "watch the receipts inbox and tell me when a receipt bounces for a real order" into an extension that passes on the first try.
+**Add anything** (R2) writes an extension from one sentence, typed into the app's "Add anything" box or given to `dr extend "…"`. Your own agent, Claude Code or Codex as picked at setup, runs headless on your own sign-in and plan, with the extension guide, the examples and the conformance kit. DoneRight has no model or API key of its own. Each build shows the plan usage it took, and builds wait when the plan window is down to your reserve. The agent writes a package: JavaScript panels and cards for the app, watchers and schedules, a manifest of what it may touch (folders, the clipboard, the screen only while a shortcut is held, a small window by the cursor, notifications, hosts, credentials by name, schedules, the agent), tests and a README. Before you see it, DoneRight runs the conformance suite, the package's own tests, a headless render of each panel, a dry run on your recent recorded data, and an access check that it touched only what it declared. A failure goes back to the agent like any other claim. Then one approval shows what the extension can do, what it can't, and any access it asked for that the sentence doesn't need. It installs pinned at user level after your yes, `dr off` covers it, and removing it leaves no trace. A generated extension can't pass a check, write a decision or answer an ask.
+
+An extension can have your agent look at the screen and point, or act on the screen with the agent's own computer-use tools. Anything outward-facing (send, buy, post, delete) is an ask, and every action is recorded with screenshots. Extensions improve with use. DoneRight records, on your Mac only, how each one is used: opens, dismissals, undos, errors and gestures. When a pattern shows up, it proposes a change in plain words, your agent builds it, and the change is replayed against your recorded uses. A change that alters a past result is held for you. A change that stays inside the access you already granted can apply on its own once you've approved three alike, with one-click undo. New access always asks.
+
+The API's own acceptance test uses three sentences: "Hang every screenshot I take on a line under the menu bar", "When I hold ⌥Space, look at my screen and point at what I ask about", and "Watch the receipts inbox and tell me when a receipt bounces for a real order". Given only the docs, each one passes on the first try in both Claude Code and Codex.
 
 Adapters declare what they can do, and delivery and gates choose a route from those flags, never from an agent's name: hold a stop when it can, steer into a running turn when it can, wake an idle session when it can, and otherwise wait for the next prompt. Sessions come in two kinds that produce the same events. Observed sessions are the ones you start in your own terminal or app, and dr-hook watches them. Driven sessions are the ones DoneRight starts itself (R6). A driven session follows the contract paseo uses across seven agents: create or resume, start a turn, steer into it, interrupt, answer a permission, and replay history from the agent's own transcript. ACP, the Agent Client Protocol, is the generic route for driven sessions, so an agent that speaks it needs no adapter of its own.
 
@@ -192,9 +196,9 @@ The core stays four parts: the record, gates, asks and adapters. Every use case,
 |---|---|---|
 | JSON-RPC | The same methods as the extension API, over stdio as JSON lines | Extensions and adapters written in any other language |
 | MCP tools | `dr_ask` (waits, and says "still waiting" before the agent's tool timeout), `dr_wait`, `dr_claim`, `dr_propose` (proposes a check, a journey or a spec change; nothing applies until you approve it), `dr_run`, `dr_open_item`, `dr_evidence`, `dr_env`, `dr_status`, and `dr_search`, which searches your wiki, past decisions, verdicts and open items read-only, every hit with its source. Agents get no tool to answer, decide or overrule. | Claude Code and Codex. pi registers the same tools natively. |
-| HTTP | `GET /api/inbox · sessions · changes/:id · evidence/:sha · numbers`, `POST /api/asks/:id/answer` (a choice, your words or an image), `POST /api/decisions/:id/overrule`, and a live stream at `/api/stream`. Every request needs the launch token and an Origin of 127.0.0.1. | The local view |
+| App API | Reads (`inbox · sessions · changes/:id · evidence/:sha · numbers`), `asks/:id/answer` (a choice, your words or an image), `decisions/:id/overrule`, and a live event stream, as JSON lines on the hub's socket. Every request needs the launch token, and any request carrying a browser Origin is refused. There is no HTTP server for a UI. | The app and the CLI |
 | OTLP (optional) | An OpenTelemetry receiver on 127.0.0.1 that turns an agent's own telemetry into events: Claude Code's tool spans, the time each call waited on you, and each model request's cost | Agents that export OpenTelemetry |
-| CLI | `dr setup · spec · extend · doctor · status · map · inbox · show · view · run · claim · env up\|down · report · off\|on · debug bundle · install · hub start\|stop` | You, and scripts |
+| CLI | `dr setup · spec · extend · doctor · status · map · inbox · show · open · run · claim · env up\|down · report · off\|on · debug bundle · install · hub start\|stop` | You, and scripts |
 
 ## The three paths that matter most
 
@@ -328,9 +332,9 @@ On a subscription the limit is the plan's windows, not dollars. Both agents repo
 
 | Threat | Mitigation |
 |---|---|
-| Injected answers | An answer reaches an agent as an instruction, so answers come only from the CLI and the local view. The view listens on 127.0.0.1 only, needs a new token each launch, and checks the Origin. The hub socket is readable only by you. Content in web pages, issues or tool output is data and never becomes an answer. |
+| Injected answers | An answer reaches an agent as an instruction, so answers come only from the CLI and the app. Both talk to the hub over its socket, which is readable only by you, with a new token each launch. There is no HTTP server for a UI, and the hub refuses any request carrying a browser Origin, so no web page can reach it. Content in web pages, issues or tool output is data and never becomes an answer. |
 | Agents gaming checks | Specs and expected outputs are protected by a fail-closed guard, and a drafted or proposed check decides nothing until you approve it. Decisions live in `~/.doneright`, outside every repo, and agents have no tool to answer or decide. Each run records its environment fingerprint and the commit it ran on. |
-| Malicious extensions | Extensions run as code. They install at user level and are pinned to a version. A project's extensions load only after you trust the project. `dr install` shows the package's source and permissions first. |
+| Malicious extensions | Extensions run as code. They install at user level and are pinned to a version. A project's extensions load only after you trust the project. `dr install` shows the package's source and permissions first. In the app, each panel runs in gpui-shell with only the capabilities it declared. |
 | Secrets | Transcripts and evidence are redacted on the way in. Environment variables are recorded by name only, and credentials by name and source, loaded only into the process that needs them. A key pasted into chat opens a "rotate this key" item. Nothing syncs by default. |
 | Untrusted repos | A repo's `.doneright/` specs run commands. They run only after you trust the project, the way pi, Claude Code and Codex treat project settings. Drafting a spec runs the repo's commands too, so it waits for the same trust. Until then, `dr` only watches. |
 | Collateral damage | `dr` stops only processes it started, by PID, and never kills by name or port. Temporary worktrees are its own, and it never runs git in another worktree or uses a stash. |
@@ -343,7 +347,7 @@ On a subscription the limit is the plan's windows, not dollars. Both agents repo
 | Hook overhead | Under 10 ms at p95 on top of process start, except holds | Hooks run on every tool call. On the pilot's Mac, starting a process cost about 27 ms for a native binary, 52 ms for Node and 75 ms for Python. |
 | Fail-open time | Under 50 ms to decide the hub isn't there | A stopped hub must never slow an agent down noticeably |
 | Event intake | 5,000 events a second, in batched WAL writes | Catching up on a backlog of transcripts |
-| Local view | Inbox loaded in under 1 second, with 30 days of history | You open it to decide, not to wait |
+| The app | Inbox loaded in under 1 second, with 30 days of history | You open it to decide, not to wait |
 | Concurrent runs | At most half the CPU cores run checks at once, queued per worktree. A repo's own lease scripts are honored. | Many agents in many worktrees share one machine |
 | Record size | Under 1 GB for 30 days of heavy use, not counting evidence | A full archive of a heavy month of agent work |
 
@@ -351,8 +355,8 @@ On a subscription the limit is the plan's windows, not dollars. Both agents repo
 
 - **Version 0 runs from the checkout** on the maintainer's machine. In R2 it becomes **one npm package,** `doneright`, with the `dr` command. dr-hook ships as per-platform optional packages, the way esbuild and Biome ship their binaries. It needs Node 22.19 or newer, the same as pi.
 - **`dr setup`** installs through each agent's own mechanism: a Claude Code plugin, a pi package, entries in Codex's `hooks.json`, and later a Cursor plugin. It merges with hooks you already have, shows the exact diff, and writes only after you say yes. For Codex, it reminds you to approve the hooks once in `/hooks`. `dr setup --undo` removes everything it added. It runs once per machine, from anywhere, and then drafts a spec for each repo in your history, as spec-draft describes.
-- **The repo** has `packages/` for the core, hub, CLI, view, MCP server, contracts, the first-party extensions and the adapters, and `crates/dr-hook` for the hook client.
-- **Libraries:** better-sqlite3 behind a small storage interface, Ajv with JSON Schemas as the source of every contract and generated TypeScript types, Vitest, Playwright and Preact. `node:sqlite` still prints an "experimental" warning on Node 23.9, so it waits. Effect 4 is decided by a one-day spike before the hub: the same hold, lease and cleanup slice built in Effect and in plain TypeScript, judged on leaked processes and leases, deterministic timeouts, how well agents write it, and review time. If Effect passes, it's used only in the hub core, pinned; the CLI, the extension API (Promises with an AbortSignal), contracts (JSON Schema and Ajv) and the SQLite store stay plain.
+- **The repo** has `packages/` for the core, hub, CLI, MCP server, contracts, the first-party extensions and the adapters, and `crates/` for the hook client (`dr-hook`) and the app.
+- **Libraries:** better-sqlite3 behind a small storage interface, Ajv with JSON Schemas as the source of every contract and generated TypeScript types, Vitest and Playwright, and gpui-kit for the app. `node:sqlite` still prints an "experimental" warning on Node 23.9, so it waits. Effect 4 is decided by a one-day spike before the hub: the same hold, lease and cleanup slice built in Effect and in plain TypeScript, judged on leaked processes and leases, deterministic timeouts, how well agents write it, and review time. If Effect passes, it's used only in the hub core, pinned; the CLI, the extension API (Promises with an AbortSignal), contracts (JSON Schema and Ajv) and the SQLite store stay plain.
 - **Contracts** are published separately as JSON Schemas, with the conformance tests other tools can run.
 
 ## How we know version 0 works
@@ -386,9 +390,9 @@ Exit: the done gate blocks a false "done" on a seeded bug and passes the real fi
 
 ### Oct 26–Nov 1
 
-**See it.** The local view (Needs you, Work, Numbers), the evidence store, Playwright journeys, `dr env up` with leases, and the readings behind the Numbers panel.
+**See it.** The two-day gpui-kit spike first. Then the app: its window (Needs you, Work with its List | Map switch, Numbers), the menu-bar count, notifications with answers and the hub at login. Also the evidence store, Playwright journeys, `dr env up` with leases, and the readings behind the Numbers panel.
 
-Exit: a journey's video and screenshots show up in the view, and a taste call is answered there and reaches the agent.
+Exit: a journey's video and screenshots show up in the app, and a taste call is answered there and reaches the agent.
 
 ### Nov 2–8
 
@@ -407,7 +411,7 @@ Exit: used for a week across Claude Code and Codex on the maintainer's machine, 
 | Claude Code, Codex, Cursor | Hook behavior: Stop holds, background waiters that wake a session, and Codex background hooks that can't. Also plugins as the install path, and OpenTelemetry tool spans. | Adapters, packaging, the OTLP receiver |
 | [Karpathy's LLM wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f), [qmd](https://github.com/tobi/qmd) | A markdown wiki an agent keeps from sources it never edits, with an index, a log, and ingest, query and lint steps. qmd shows the stack: TypeScript, SQLite FTS5 and sqlite-vec, served over MCP. | wiki |
 | [spec-kit clarify](https://github.com/github/spec-kit/blob/main/templates/commands/clarify.md), Devin, Copilot and Codex memory | At most five questions ranked by impact, each with a recommended answer and the rest deferred. One fact per line with its source and date, citations re-checked before use, newer evidence winning, unused facts expiring. Products that made you approve every fact retired that step. | Setup's questions, wiki claims |
-| [tendedero](https://github.com/alejandrobujan/tendedero), [cc-switch](https://github.com/farion1231/cc-switch), [gpui-kit](https://github.com/longbridge/gpui-kit) | A tiny Swift Mac app that hangs things on a line under the menu bar, shown when the pointer rests at the top, with a gesture for everything; a Tauri and React control app for many agents; and a GPU-native Rust UI kit with tables, a dock layout and a JavaScript panel host. | The Mac app's line, a later cross-platform shell, and GPUI kept in mind for a heavy workbench |
+| [tendedero](https://github.com/alejandrobujan/tendedero), [Clicky](https://github.com/farzaa/clicky), [cc-switch](https://github.com/farion1231/cc-switch), [gpui-kit](https://github.com/longbridge/gpui-kit) | tendedero is a tiny Swift Mac app that hangs things on a line under the menu bar, shown when the pointer rests at the top, with a gesture for everything. Clicky, an MIT Swift app, is an AI buddy next to your cursor that sees your screen, talks and points. cc-switch is a Tauri and React control app for many agents. gpui-kit is a Rust UI kit on GPUI (Apache-2.0) with 75+ components, AccessKit accessibility, headless UI tests, a webview, and gpui-shell, a JavaScript extension host where every capability is granted explicitly. | The line under the menu bar (R2) from tendedero; Clicky's cursor buddy as an Add-anything example; nothing from cc-switch; gpui-kit as the app's toolkit |
 | [Hindsight](https://github.com/vectorize-io/hindsight) | Facts kept with exact quotes and a proof count, knowledge pages written as markdown and rewritten as the bank learns, and recall that fuses keyword, vector, graph and time. It needs its own model and a Python server, which is why it's an extension here. | Wiki proof counts and pages; an optional index |
 | Graphiti, Cognee, LightRAG | Facts that keep their sources and validity times, and storage behind driver interfaces with capability flags. Also what to avoid: a model call for every chunk, and a database server. | Wiki claims, `dr.registerIndex` |
 | CodeWiki, aider | Docs written through the `claude` and `codex` CLIs and updated from diffs, and a repo map from tree-sitter with no model. | Wiki extraction and code links |
@@ -428,9 +432,10 @@ Not taken: hooks in the repo's settings file, as the playbook suggests; commit t
 | Question | Leaning | Decide by |
 |---|---|---|
 | Effect in the hub core | Plain TypeScript unless a one-day spike shows Effect stops every process and lease, keeps timeouts deterministic, and gets written correctly by agents within two rounds of fixes. Either way the CLI, extensions and contracts stay plain. | Before the hub, week 1 |
+| The app's toolkit | gpui-kit, if a two-day spike gets all of this working: the window with a long session list, the menu-bar count and a top-edge line, one panel written in JavaScript by Claude Code and by Codex from the docs alone, a headless render test, one screen-capture frame with the macOS permission flow, and a report shown in the webview. The spike records build time, app size, idle CPU and memory. gpui-shell, the JavaScript host, says it is at its first milestone and not yet a stable interface, so the spike also decides whether extension panels run there or in the webview. If the spike fails, we fall back to the earlier plan: a small Swift app for the line and the count, plus a local web view. | Before the app, week 4 |
 | Hub lifecycle | Started on demand by dr-hook or the CLI, with an optional login service (launchd or systemd) for people who want it always on | Week 1 |
 | Question matching | Exact matches only in v0. Similar questions are suggested to you and become rules once you confirm them, never by themselves. | Week 2 |
-| Desktop app wake | If the background waiter doesn't wake desktop sessions, fall back to the Stop hold and your next message, and say so in the view | Week 2 |
+| Desktop app wake | If the background waiter doesn't wake desktop sessions, fall back to the Stop hold and your next message, and say so in the DoneRight app | Week 2 |
 | Issue tracker | GitHub first, through the API with the user's existing `gh` login. GitLab and Linear come later as sources. | Week 3 |
 | Windows | Named pipes instead of the Unix socket, after version 0 | R2 |
 | Codex sessions `dr` starts | Use app-server only for long autonomous runs that need live answers. Your own Codex sessions stay as they are. | R2 |

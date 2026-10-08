@@ -146,7 +146,7 @@ The journeys run on the merge base and on your branch, and screenshots, requests
 
 > Add the new checkout layout. Show me the before and after when it's ready.
 
-The screenshots come to your inbox as a taste call. Answer in `dr view`.
+The screenshots come to your inbox as a taste call. Answer in the DoneRight app (`dr open`).
 
 **Let agents work while you're away**
 
@@ -156,12 +156,12 @@ Slow checks run in the background. Verdicts post as commit statuses. Taste calls
 
 **Stop the agent from asking twice**
 
-Answer once, in `dr inbox` or `dr view`. The answer is saved as a decision, and the next time the same question comes up, it's answered for you and listed under "Decided for you". You can overrule it with one click.
+Answer once, in `dr inbox` or the app. The answer is saved as a decision, and the next time the same question comes up, it's answered for you and listed under "Decided for you". You can overrule it with one click.
 
 **Things you no longer need to say**
 
 - "Double-check your work" or "are you sure it's done?" The done gate does that, with evidence.
-- "Send me screenshots." Journeys capture them, and `dr view` shows them.
+- "Send me screenshots." Journeys capture them, and the app shows them.
 - "Run the full suite before you push." That's what `done.yaml` is for.
 
 **Optional snippet for `AGENTS.md` or `CLAUDE.md`**
@@ -189,7 +189,7 @@ Everything else is handled without you. A block owned by someone else goes to th
 ```bash
 dr inbox              # list what needs you
 dr inbox answer 2     # answer from the terminal
-dr view               # or answer in the local view, with screenshots side by side
+dr open               # or answer in the app, with screenshots side by side
 ```
 
 ## How your answer reaches the agent
@@ -199,7 +199,7 @@ dr view               # or answer in the local view, with screenshots side by si
 | Claude Code (terminal and desktop app) | At its next tool call | The stop is held until you answer, then the agent continues | A background waiter wakes the session when you answer |
 | Codex | At its next tool call | The stop is held, and your answer becomes the next prompt | On your next message; Codex can't be woken from outside |
 
-If an answer can't be delivered right away, `dr view` shows it as waiting.
+If an answer can't be delivered right away, the app shows it as waiting.
 
 ## Reading a verdict
 

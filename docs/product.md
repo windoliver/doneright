@@ -46,7 +46,7 @@ From first principles the product has one job: turn an agent's claim into a verd
 
 No extension can break these. The other rules in the framework are defaults of the extensions that need them.
 
-**Only where you're needed.** An item reaches you for one of four reasons. Everything else is handled without you. Nothing else is pushed, but the whole record stays visible in `dr view` whenever you look.
+**Only where you're needed.** An item reaches you for one of four reasons. Everything else is handled without you. Nothing else is pushed, but the whole record stays visible in the DoneRight app whenever you look.
 
 | Reaches you | Never reaches you |
 |---|---|
@@ -83,7 +83,7 @@ export default function (dr) {
 ### First-party extensions
 
 - **Agent adapters:** Claude Code and Codex first, then pi and Cursor.
-- **Prove "done":** the done gate, journeys, environments and spec drafting, with the local view, on by default.
+- **Prove "done":** the done gate, journeys, environments and spec drafting, with their views in the app, on by default.
 - **Inbox and decisions:** batching, resolvers and the keep-or-remove list.
 - **Parallel sessions:** the session map, heads-ups, dry merges and leases.
 - **Plan usage and readings:** plan windows, tokens per task, speed, time, quality and spend.
@@ -94,9 +94,9 @@ export default function (dr) {
 ### Taken from pi
 
 - Strong defaults and a small core. A feature that isn't the core's one job ships as a package.
-- One record behind every interface. The terminal, local view, MCP tools and hooks all call the same core.
+- One record behind every interface. The terminal, the app, MCP tools and hooks all call the same core.
 - Packages come from npm or git, pinned to a version. They install at user level, and a project's packages load only after you trust the project, because extensions run as code.
-- The extension API has one test of whether it's simple enough: given only its docs, Claude Code and Codex each write a working email monitor from one sentence, on the first try.
+- The extension API has one test of whether it's simple enough. Given only its docs, Claude Code and Codex each build three extensions from one sentence each, on the first try: a line for your screenshots, a helper that points at things on your screen, and an email monitor.
 - Open formats ship as contracts with conformance tests, the way pi publishes its telemetry contracts, so other tools can prove they're compatible.
 - Outside PRs to the core are closed automatically and reviewed in a daily batch, as pi does. Outside work goes into extensions.
 
@@ -106,20 +106,21 @@ export default function (dr) {
 |---|---|---|---|---|
 | "Is it really done?" | A verdict with its proof: journeys, screenshots, the merge base | Prove "done" | Gates, the record, adapters (holding the stop) | R1 |
 | Agents know how you work | Your wiki: what you check, how stacks start, your rules and answers, each with its source | Wiki | The record (sources, decisions), adapters (session-start context) | R1 |
-| Which part is moving, and what's proven | The project map: each part with its sessions, issues and PRs, evidence and gaps | The view (Map) | The record, gates | R1 |
+| Which part is moving, and what's proven | The project map: each part with its sessions, issues and PRs, evidence and gaps | The app (Map) | The record, gates | R1 |
 | Only what needs you | One count, asks in batches, questions decided for you | Inbox and decisions | Asks, the record | R1 |
 | Your answer reaches the agent | The answer inside the running or idle session | Agent adapters | Adapters (delivery), asks | R1 |
 | Many agents at once | Heads-ups, hard stops, leased ports and accounts | Parallel sessions | The record (the session map), adapters (context and deny), gates | R1 rules, R2 |
 | Plan limits and spend | Each plan's windows, tokens per task, spend | Plan usage and readings | The record (sources) | R2 |
 | Proof others can check | A GitHub status, the PR comment, the report, a receipt | Reports | The record, gates | R1 to R3 |
 | Start an app | A playbook, lanes, scheduling within your plans, the release | Playbooks | Adapters (starting a session), gates, asks, the record | R6 |
+| Add what you need | An "Add anything" box: one sentence becomes a panel, a watcher or a shortcut, built by your own agent and installed after one approval | Add anything | Adapters (starting a session), gates, asks, the record | R2 |
 | Money and infra | Bills, findings by dollars, the infra map | Money and infra | The record (sources), gates (cost guards), asks | R2, R3 |
 | Keep it fixed | Guards for whole classes of bugs, memory, fix reach | Keep | Gates (block mode), asks, the record | R4 |
 | CI and teams | CI only when ready, a shared inbox | CI, the team server | Gates, asks, the record | R5, later |
 
 Every use case is an extension on the same four parts, so the core stays small. Parallel sessions and playbooks needed two more extension points, not a fifth part: a hook handler can add context for the agent or deny with a reason, and an extension can start a session through an adapter and register the scheduler that picks the agent, plan and model.
 
-**What we removed.** Fourteen concepts became six, and ten rules became four core invariants plus extension defaults. Profiles became presets, which are lists of extensions with settings. Pushed dashboards and alerts are gone, while `dr view` still shows the whole record when you look. The enterprise track is a preset plus adapters, not a separate product. Each agent's delivery routes moved into its adapter.
+**What we removed.** Fourteen concepts became six, and ten rules became four core invariants plus extension defaults. Profiles became presets, which are lists of extensions with settings. Pushed dashboards and alerts are gone, while the app still shows the whole record when you look. The enterprise track is a preset plus adapters, not a separate product. Each agent's delivery routes moved into its adapter.
 
 ## Measure, prove, keep, and let people decide
 
@@ -165,7 +166,7 @@ Prove and Decide are the core. Measure and Keep are first-party extensions, on b
 | Any other agent, local or in the cloud | Without an adapter, nothing reaches the session: no hold and no delivery. Its PR is still checked: DoneRight runs the done gate on the PR's commit in a temporary worktree and posts the verdict. An adapter, in any language over JSON-RPC, adds the rest when the agent has hooks. | — |  |  |
 | pi | Right away, steered in after its current tool calls | Right away, queued for when it finishes | Right away: the extension starts a new turn (`pi.sendUserMessage`) | Next session (`session_start` event) |
 
-The hook-started waiter is the backstop for when the agent forgets. Holding costs nothing, but the session looks busy until you answer or the hold times out, so `dr` holds only when the agent left a question for you. A question in the middle of a task works the same way: the agent calls `dr ask` and waits on the call. Each waiter exits with its session and claims an answer only once, and `dr` confirms delivery from the transcript. Claude Code can also wake on a timer (session crons), but every tick is a full model turn, so `dr` doesn't use them. In Codex, a wait the agent runs in the foreground can turn into repeated polling that burns tokens. Nothing here needs a startup flag. Claude Code's channels do, and they don't run in the desktop app. Answers enter the agent as instructions, so the hub accepts them only from your terminal and local view.
+The hook-started waiter is the backstop for when the agent forgets. Holding costs nothing, but the session looks busy until you answer or the hold times out, so `dr` holds only when the agent left a question for you. A question in the middle of a task works the same way: the agent calls `dr ask` and waits on the call. Each waiter exits with its session and claims an answer only once, and `dr` confirms delivery from the transcript. Claude Code can also wake on a timer (session crons), but every tick is a full model turn, so `dr` doesn't use them. In Codex, a wait the agent runs in the foreground can turn into repeated polling that burns tokens. Nothing here needs a startup flag. Claude Code's channels do, and they don't run in the desktop app. Answers enter the agent as instructions, so the hub accepts them only from your terminal and the app.
 
 Tested October 4, 2026 on Claude Code 2.1.289, headless: a held stop continued the agent with the answer. An idle session woke 1.4 seconds after the answer reached the hook's waiter, and 2.5 seconds after it reached a background waiter the agent had started. Hooks also run in the Claude desktop app: a desktop session ran its SessionStart and WorktreeCreate hooks on October 6. Not yet tested: a held stop there, Codex, the Codex app and Cursor. Two open reports say hooks didn't run in the Codex app ([openai/codex#33992](https://github.com/openai/codex/issues/33992), [#47607](https://github.com/openai/codex/issues/47607)), so the Codex app is tested before anyone relies on it. Sources: Claude Code [hooks](https://code.claude.com/docs/en/hooks) (background hooks, `asyncRewake`) and [channels](https://code.claude.com/docs/en/channels); Codex [hooks](https://developers.openai.com/codex/hooks) (background hooks don't start a turn) and [app-server](https://developers.openai.com/codex/app-server); [openai/codex#47193](https://github.com/openai/codex/issues/47193), [#32188](https://github.com/openai/codex/issues/32188) (background completion doesn't wake) and [#38495](https://github.com/openai/codex/issues/38495) (polling cost); Cursor [hooks](https://cursor.com/docs/hooks) (`followup_message`, `loop_limit`); pi [sendUserMessage example](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/examples/extensions/send-user-message.ts).
 
@@ -247,9 +248,9 @@ protects: class "a paid order isn't recorded"
 
 Testing guidance arrives when it's needed, not as instruction-file text. When the agent tries to finish, the done gate names the journey that hasn't run on the real stack, and a testing skill loads only when the plan calls for one. Playwright, Maestro and the agents' own browser and computer-use tools drive journeys. Qlty CLI can run static checks, but it's source-available under the Business Source License 1.1, so it stays optional.
 
-## Terminal first, a local view for screenshots, hosted later
+## Terminal first, one native app for screenshots, hosted later
 
-The ledger is for agents, but people need a place to look. Start with no hosting at all. Quick numbers and follow-ups show in the terminal. Screenshots, side-by-side taste calls and charts open in a local web view on your own machine, the way test reports do. A hosted version comes only when a team needs a shared view across people.
+The ledger is for agents, but people need a place to look. Start with no hosting at all. Quick numbers and follow-ups show in the terminal. Screenshots, side-by-side taste calls and charts open in the app, one native desktop app on your own machine. It's native on macOS first, and the same app runs on Windows and Linux later. There's no web view: HTML is kept only for reports you share. A team server comes only when a team needs a shared view across people, and teammates use the same app pointed at it.
 
 ### Terminal
 
@@ -260,33 +261,33 @@ verdicts    PASS 37  FAIL 4  INCONCLUSIVE 2  BLOCKED 1
 waiting on you: 3 taste calls · 2 open items · 1 guard promotion
 
 $ dr inbox
-1  taste    checkout button moved 8px left        → dr view 1
+1  taste    checkout button moved 8px left        → dr open 1
 2  open     payment email never tested live        needs a run · $0.40
 3  open     async mode untested                    gap · accept or file
 4  guard    no-full-screenshot-reads: warn → block needs your OK
 ```
 
-### Local view (`dr view`)
+### The app (`dr open`)
 
 The mocks and numbers are illustrative. The same evidence also appears in the PR comment (verdict plus screenshots), the status line and the Monday brief.
 
-**What `dr view` shows.** You open it with three questions: does anything need me, is the work done, and what did it cost. So it has three views, in that order. Only the first ever pushes, and nothing is taken away by keeping the rest quiet: every detail is one click deeper.
+**What the app shows.** You open it with three questions: does anything need me, is the work done, and what did it cost. So it has three views, in that order. Only the first ever pushes, and nothing is taken away by keeping the rest quiet: every detail is one click deeper.
 
 - **Needs you:** each ask as one question, the one piece of evidence that answers it, and two buttons, or your own words or a screenshot. Below it, what's coming in your next batch, and everything decided for you, each with a one-click overrule.
 - **Work:** every session and change on one line, led by a plain sentence such as "Not done: the receipt shows $18.00". Open one for its verdict and its end-to-end run: how many runs came back clean, a screenshot of each step, and the end state with a highlight of what was checked beside it. Failing and running checks come next; passed checks fold into one line. The video, trace and receipt are one click deeper, and `dr report` puts all of it in one HTML file. The repo's spec is here too.
 - **Numbers:** readings outside their band, or that changed, come first; the rest fold into one line. Money, the infra map and the guards that fired are sections here, and extensions add their own.
 
-One count, the things that need you, reads the same everywhere: the view's title, the status line and the first line of `dr status`. Color means status and nothing else: the five verdicts and "needs you". Highlights never cover a screenshot: what each check looked at is marked in a strip beside it.
+One count, the things that need you, reads the same everywhere: the menu bar, the status line and the first line of `dr status`. Color means status and nothing else: the five verdicts and "needs you". Highlights never cover a screenshot: what each check looked at is marked in a strip beside it.
 
 **Where it runs.** Every surface reads one data model: the ledger in a local SQLite file and the evidence folder beside it. Our own views show only what no other tool shows: the inbox, verdicts with their evidence, and receipts. Long-term charts go to the tools you already use.
 
 | Surface | How it's built and hosted | Who sees it |
 |---|---|---|
 | Terminal | `dr status`, `dr inbox` and `dr show`, from the same CLI. Agents read the same data over MCP. | You and your agents |
-| Local view | `dr view` serves a static web app and a small API from the CLI itself, on 127.0.0.1 only, with a new token each launch, because answers given there reach agents as instructions. It reads the ledger and evidence directly, with no account and no Docker. From your phone, reach it over a private network such as Tailscale, never a public tunnel. | You |
-| Report file | `dr report` writes one self-contained HTML file for a change, with the verdict, screenshots, video and receipt. It opens offline and attaches to a PR or a CI run, the way Playwright's test report does. | Anyone you send it to |
+| The app | One native desktop app, built with gpui-kit. `dr open` opens it at what needs you, or at a session, change or report, such as `dr open #128`. The hub serves it and the CLI over a local socket, with a new token each launch, because answers given there reach agents as instructions. The hub refuses any request carrying a browser Origin, so no web page can reach it. There's no account and no Docker. Away from your Mac, asks still reach you as notifications that carry the answers. If a browser view is ever needed, gpui-kit's WebAssembly target is the option. | You |
+| Report file | `dr report` writes one self-contained HTML file for a change, with the verdict, screenshots, video and receipt. It opens offline in any browser or in the app's webview, and attaches to a PR or a CI run, the way Playwright's test report does. | Anyone you send it to |
 | Where you already look | A PR comment and check run, the agent's status line, the Monday brief, and readings exported as OpenTelemetry metrics so Grafana or PostHog can chart trends. | Your team |
-| Team server, later | The same web app in team mode. Each machine pushes its ledger events, content-free by default, with evidence only for projects that opt in. It ships as one Docker image with Postgres and S3-compatible storage behind your sign-in, or as Workers, D1 and R2 behind Cloudflare Access for a small team. Enterprises run it in their own cloud. | Your team, after Decision 2 |
+| Team server, later | Teammates use the same app, pointed at the team server. Each machine pushes its ledger events, content-free by default, with evidence only for projects that opt in. It ships as one Docker image with Postgres and S3-compatible storage behind your sign-in, or as Workers, D1 and R2 behind Cloudflare Access for a small team. Enterprises run it in their own cloud. | Your team, after Decision 2 |
 
 ## FinOps built on the same loop, run by agents
 
@@ -328,7 +329,7 @@ The full discovery runs once. After that, three triggers re-map only the part th
 - An agent running a deploy, migration or infra command, seen by the hook before and after each command.
 - A daily check of each part's config fingerprint against the vendor's API, which catches changes made by hand in a console.
 
-Cost and use are still read daily, because traffic moves them even when nothing is reconfigured. They're watched with control bands and no model. You hear about infra only in four cases: a new paid part appears, what's deployed differs from the repo in a way that costs money, a paid part has no owner or no traffic, or an infra change is over budget. Everything else sits in an Infra panel in `dr view`. Where existing tools already read a vendor, the map uses them: Cartography and CloudQuery for cloud inventories, and Infracost for cost diffs on Terraform changes.
+Cost and use are still read daily, because traffic moves them even when nothing is reconfigured. They're watched with control bands and no model. You hear about infra only in four cases: a new paid part appears, what's deployed differs from the repo in a way that costs money, a paid part has no owner or no traffic, or an infra change is over budget. Everything else sits in an Infra panel in the app. Where existing tools already read a vendor, the map uses them: Cartography and CloudQuery for cloud inventories, and Infracost for cost diffs on Terraform changes.
 
 ### The Money view
 
@@ -579,12 +580,12 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 ### R1 · Oct 5 – Nov 8
 
-**Prove "done", and see it.** This is where your time comes back first. The core ships here with its first extensions: the Claude Code and Codex adapters, your wiki, the done gate with specs drafted for you, the local view and browser journeys. The pi adapter and a clean-machine install follow in R2.
+**Prove "done", and see it.** This is where your time comes back first. The core ships here with its first extensions: the Claude Code and Codex adapters, your wiki, the done gate with specs drafted for you, the app and browser journeys. The pi adapter and a clean-machine install follow in R2.
 
 **What you see**
 
 - A terminal view for numbers and follow-ups: `dr status`, `dr inbox`, `dr show`.
-- A local web view, `dr view`, for screenshots side by side, one-click answers to taste calls, open items and charts. No hosting. Each taste call shows your past calls on the same screen, so you judge with your own history in view.
+- The app, one native desktop app, for screenshots side by side, one-click answers to taste calls, open items and charts, in three views: Needs you, Work and Numbers. The menu bar shows one count, notifications carry the answers, and the hub starts at login. `dr open` opens the app at what needs you, or at a session, change or report. No hosting. Each taste call shows your past calls on the same screen, so you judge with your own history in view.
 - Each verdict is a GitHub commit status that branch protection can require. A PR comment with screenshots and `dr report`, one HTML file per change, follow in R2.
 - `dr status` and the Work view list every session from every agent and repo, built for dozens at once: grouped by repo and issue, with what needs you and what's stuck first, and quiet sessions folded into one line. They flag two sessions on one issue, a session an app quit or a usage limit interrupted, and an idle session with work that isn't pushed. From any session's row you can open it in its app, pause it, or send it a note: a note reaches a Claude app session right away and a Codex app session when it next stops. Starting, steering and stopping sessions come with the ones DoneRight starts itself. A Map switch shows the same work per project: each part, from the repo's own structure, with the sessions on it now, its open issues and PRs, and its evidence, the tests and journeys with their last result, plus the parts nothing proves yet. Every change, verdict and open item has a three-line plain summary.
 
@@ -598,7 +599,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 **Done gate**
 
-- Your definition of done is drafted from what the repo already runs and what you've asked agents before, and you approve it once. Not happy with a line? Say what to change in your own words, in the view or to your agent; it comes back as a diff, and nothing is written until you apply it. It runs whenever an agent says done or opens a PR. It reads the issue's acceptance criteria, and the verdict decides whether the PR says "Closes" or "Part of". When the agent wrote a plan, the gate runs the plan's proof steps and compares the diff with it.
+- Your definition of done is drafted from what the repo already runs and what you've asked agents before, and you approve it once. Not happy with a line? Say what to change in your own words, in the app or to your agent; it comes back as a diff, and nothing is written until you apply it. It runs whenever an agent says done or opens a PR. It reads the issue's acceptance criteria, and the verdict decides whether the PR says "Closes" or "Part of". When the agent wrote a plan, the gate runs the plan's proof steps and compares the diff with it.
 - The tool owns the proof and gives a verdict. Open items are tracked, and only taste calls come to you. A claim that stalls, with the same open items twice and no new evidence, stops going back to the agent: it comes to you once, as a decision to split the issue, fund the live runs it needs, or accept what's proven. Every claim also gets a size check, with no model: lines, files, new dependencies, folders or services, files outside the plan, code no test reaches and duplicated blocks, against the plan and what you've accepted for the same kind of change in that repo. Over that, the agent hears it first and trims or says why; still over, it's one taste call for you. Size alone never fails a change.
 - A policy check answers the questions your instruction files and saved decisions already cover, whether the agent stops with a question, asks one or hits a permission prompt.
 
@@ -644,8 +645,9 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 - The pi adapter, then Cursor.
 - A clean install through npm with prebuilt binaries and a Claude Code plugin.
-- A small Mac app: what needs you hangs on a line under the menu bar, answerable right there, with one count in the menu bar, notifications that carry the answers, and the hub at login. The web view stays the full UI.
-- `dr extend`: describe an extension in a sentence, such as "watch the receipts inbox and tell me when a receipt bounces". Your agent writes it, DoneRight tests it and shows what it can and can't touch, and it installs after your yes.
+- The line under the menu bar, in the app: what needs you hangs on a line under the menu bar, shown when the pointer rests at the top edge or with a shortcut, and you answer it in place.
+- Add anything: type what you want in the app's "Add anything" box, or run `dr extend "…"`. Your own agent, Claude Code or Codex as picked at setup, builds it headless on your own sign-in and plan. DoneRight has no model or API key of its own. Each build shows the plan usage it took, and builds wait when the plan window is down to your reserve. The agent writes an extension package: panels and cards for the app, watchers and schedules, a manifest of what it may touch (folders, the clipboard, the screen only while a shortcut is held, a small window by the cursor, notifications, hosts, credentials by name, schedules, the agent), tests and a README. Before you see it, it passes the conformance suite, its own tests, a headless render of each panel, a dry run on your recent data, and an access check that it touched only what it declared. A failure goes back to the agent like any other claim. One approval shows what it can and can't do. It installs pinned, `dr off` covers it, and removing it leaves no trace. A generated extension can't pass a check, write a decision or answer an ask. Three examples: "Hang every screenshot I take on a line under the menu bar", "When I hold ⌥Space, look at my screen and point at what I ask about", and "Watch the receipts inbox and tell me when a receipt bounces". An extension can have your agent look at the screen and point, or act on it with the agent's own computer-use tools. Anything outward-facing, such as send, buy, post or delete, is an ask, and every action is recorded with screenshots.
+- What you add improves with use. DoneRight records, on your Mac only, how each extension is used: opens, dismissals, undos, errors and gestures. When a pattern shows up, it proposes a change in plain words, your agent builds it, and the change is replayed against your recorded uses. A change that alters a past result is held for you. A change that stays inside the access you already granted can apply on its own once you've approved three alike, with one-click undo. New access always asks.
 - A PR comment with the verdict and screenshots, and `dr report`, one HTML file per change.
 
 **Infra cost**
@@ -953,10 +955,10 @@ The release details are in the [roadmap](#proof-of-done-first-then-everything-el
 | Name | DoneRight, chosen on October 5 because it says the job in plain words. It replaced the working name Flight Recorder, which read as aviation or Java. | Done |
 | Core size | The core is the record, gates, asks and adapters. Everything else ships as an extension, including our own features, and a new core feature needs a reason no extension can meet. | R1 |
 | Extension trust | Extensions run as code. They install at user level and are pinned to a version. A project's extensions load only after you trust the project. | R1 |
-| Language | TypeScript on Node for the core, extensions, local view, MCP server and team server. Extensions load in-process as TypeScript modules, the way pi's do, and everything around the product (MCP, Playwright, agent plugins, Cloudflare Workers) is TypeScript too. The one native piece is the hook client, a tiny Rust binary that forwards each hook call to the running hub and allows the action if the hub is down, because hooks run on every tool call. Rust comes in elsewhere only where profiling shows a need, as a native module. Contracts are JSON Schemas with conformance tests and a JSON-RPC mode, so extensions in any language can run out of process. Effect 4 is decided by a one-day spike before the hub is built: if it passes, it's used only inside the hub core, and the CLI, the extension API, contracts and storage stay plain TypeScript. | R1 |
+| Language | TypeScript on Node for the core, extensions, MCP server and team server; Rust for the hook client and the app. Extensions load in-process as TypeScript modules, the way pi's do, and everything around the product (MCP, Playwright, agent plugins, Cloudflare Workers) is TypeScript too. The hook client is a tiny Rust binary that forwards each hook call to the running hub and allows the action if the hub is down, because hooks run on every tool call. Rust comes in elsewhere only where profiling shows a need, as a native module. Contracts are JSON Schemas with conformance tests and a JSON-RPC mode, so extensions in any language can run out of process. Effect 4 is decided by a one-day spike before the hub is built: if it passes, it's used only inside the hub core, and the CLI, the extension API, contracts and storage stay plain TypeScript. | R1 |
 | Receipt format | Build on an existing attestation standard (in-toto or SLSA) so CI and deploy tools can verify it | R3 |
-| Local app | The web view is the one UI: the hub serves it, and reports, extensions and the team server share it. A small native Mac app, built in Swift like tendedero, adds the line under the menu bar, the count, notifications with answers, and the hub at login. A cross-platform shell, built with Tauri like cc-switch, comes when Windows or Linux users need it. GPUI (gpui-kit) was considered, for a heavy native workbench later. | R2 |
-| Hosted app | Not in v1. Terminal, local view and report files first. The team server is the same app plus a push-only sync, content-free by default: self-hosted with Docker, or on Cloudflare for a small team, and in the customer's own cloud for an enterprise. Only after Decision 2. | Decision 2 |
+| Local app | One native desktop app, built with gpui-kit (Rust on GPUI, Apache-2.0): 75+ components, accessibility through AccessKit, headless UI tests, a webview, and gpui-shell, a JavaScript extension host where every capability is granted explicitly. It's native on macOS, and the same app runs on Windows and Linux later. There is no web view; HTML is only for reports you share, and the app shows them in its webview. R1 brings the window with its three views, the count in the menu bar, notifications with answers and the hub at login. R2 adds the line under the menu bar, modeled on tendedero, in the same app. A cursor helper like Clicky is an Add-anything extension, not another app. A two-day spike comes first. If gpui-kit fails it, we fall back to the earlier plan: a small Swift app for the line, plus a local web view. | R1 |
+| Hosted app | Not in v1. Terminal, the app and report files first. The team server is a push-only sync, content-free by default: self-hosted with Docker, or on Cloudflare for a small team, and in the customer's own cloud for an enterprise. Teammates use the same app, pointed at it. Only after Decision 2. | Decision 2 |
 | FinOps scope | Infra cost for the vendors you use in R2 and R3. Billing emails, every other vendor and commitments come after Decision 2. | R2 |
 | License | Apache-2.0; decide later whether a paid enterprise or team version is worth building | R1 |
 | First agents | Claude Code and Codex in R1; pi and Cursor in R2 | R1 |

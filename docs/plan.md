@@ -39,14 +39,15 @@ flowchart TD
     T22["#33 End-to-end"]
     T35["#46 GitHub"]
   end
-  subgraph E4["#4 Local view, journeys and environments R1 wee…"]
-    T23["#34 HTTP API and live stream for the local view"]
-    T24["#35 Local view"]
+  subgraph E4["#4 The app, journeys and environments R1 week 4…"]
+    T23["#34 App API and live stream on the hub's socket"]
+    T24["#35 The app"]
     T25["#36 Environment"]
     T26["#37 Journeys"]
     T27["#38 End-to-end"]
     T34["#45 Readings"]
     T45["#57 Project map"]
+    T48["#60 Spike"]
   end
   subgraph E5["#5 Codex, spec drafting and dogfooding R1 week …"]
     T28["#39 Codex adapter"]
@@ -62,8 +63,8 @@ flowchart TD
     T40["#52 Parallel sessions"]
     T41["#53 Plan usage"]
     T43["#55 paseo adapter"]
-    T46["#58 Mac app"]
-    T47["#59 dr extend"]
+    T46["#58 The line under the menu bar, in the app"]
+    T47["#59 Add anything"]
   end
   T1 --> T2
   T1 --> T3
@@ -115,6 +116,7 @@ flowchart TD
   T17 --> T23
   T23 --> T24
   T34 --> T24
+  T48 --> T24
   T5 --> T25
   T33 --> T25
   T4 --> T26
@@ -189,9 +191,12 @@ flowchart TD
   T11 --> T46
   T23 --> T46
   T24 --> T46
+  T48 --> T46
   T33 --> T47
   T36 --> T47
   T37 --> T47
+  T41 --> T47
+  T48 --> T47
 ```
 
 ## Later releases
@@ -230,11 +235,11 @@ flowchart TD
 | #31 | Base-commit runs in a temporary worktree | R1 | #3 | #30 |
 | #32 | Done gate: specs, issue criteria, plan proof, open items and project trust | R1 | #3 | #22, #25, #29, #31 |
 | #33 | End-to-end: block a false done, pass the real fix, gate this repo | R1 | #3 | #32, #48 |
-| #34 | HTTP API and live stream for the local view | R1 | #4 | #16, #22, #28 |
-| #35 | Local view: Needs you, Work and Numbers | R1 | #4 | #34, #45 |
+| #34 | App API and live stream on the hub's socket | R1 | #4 | #16, #22, #28 |
+| #35 | The app: Needs you, Work and Numbers | R1 | #4 | #34, #45, #60 |
 | #36 | Environment: dr env up with leased ports and PID tracking | R1 | #4 | #16, #44 |
 | #37 | Journeys: Playwright, end-state checks, evidence and a feature list | R1 | #4 | #15, #29, #36, #31 |
-| #38 | End-to-end: journey evidence in the view, taste call answered there | R1 | #4 | #25, #35, #37, #48 |
+| #38 | End-to-end: journey evidence in the app, taste call answered there | R1 | #4 | #25, #35, #37, #48 |
 | #39 | Codex adapter: hooks, trust step and Stop hold delivery | R1 | #5 | #17, #22, #29, #47 |
 | #40 | pi package: in-process client, native tools and sendUserMessage delivery | R2 | #6 | #22, #29, #44, #47 |
 | #41 | Packaging: npm, prebuilt dr-hook, Claude Code plugin and dr setup | R2 | #6 | #18, #39, #40, #44 |
@@ -253,5 +258,6 @@ flowchart TD
 | #55 | paseo adapter: the done gate, policy answers and Needs you for agents run through paseo | R2 | #6 | #23, #26, #32, #44, #48 |
 | #56 | Spike: Effect 4 or plain TypeScript for the hub core | R1 | #1 | #12 |
 | #57 | Project map: each part's sessions, issues and evidence (Work → Map, dr map) | R1 | #4 | #14, #19, #32, #35, #37 |
-| #58 | Mac app: what needs you, on a line under the menu bar | R2 | #6 | #22, #34, #35 |
-| #59 | dr extend: an extension from one sentence, written by your agent and tested before install | R2 | #6 | #44, #47, #48 |
+| #60 | Spike: the app on gpui-kit | R1 | #4 | nothing |
+| #58 | The line under the menu bar, in the app | R2 | #6 | #22, #34, #35, #60 |
+| #59 | Add anything: your agent builds an extension from one sentence, checked before install and improved with use | R2 | #6 | #44, #47, #48, #53, #60 |
