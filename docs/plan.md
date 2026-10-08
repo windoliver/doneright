@@ -54,6 +54,8 @@ flowchart TD
     T32["#43 Dogfood week and Decision 1 numbers"]
     T42["#54 Your wiki"]
     T39["#50 Spec drafting"]
+    T50["#62 What it learns"]
+    T51["#63 Read by reference"]
   end
   subgraph L1["#6 R2 · Find, and trust the numbers"]
     T29["#40 pi package"]
@@ -154,6 +156,8 @@ flowchart TD
   T15 --> T42
   T33 --> T42
   T36 --> T42
+  T50 --> T42
+  T51 --> T42
   T8 --> T39
   T15 --> T39
   T21 --> T39
@@ -194,6 +198,9 @@ flowchart TD
   T33 --> T49
   T42 --> T49
   T47 --> T49
+  T3 --> T50
+  T3 --> T51
+  T9 --> T51
   T11 --> T46
   T23 --> T46
   T24 --> T46
@@ -251,7 +258,7 @@ flowchart TD
 | #41 | Packaging: the app download, npm, prebuilt dr-hook, Claude Code plugin and dr setup | R2 | #6 | #18, #39, #40, #44 |
 | #42 | OTLP receiver for agent telemetry | R2 | #6 | #14 |
 | #43 | Dogfood week and Decision 1 numbers | R1 | #5 | #33, #38, #39, #45, #50 |
-| #54 | Your wiki: what setup learns, with sources, and questions only where history disagrees | R1 | #5 | #14, #19, #20, #26, #44, #47 |
+| #54 | Your wiki: what setup learns, with sources, and questions only where history disagrees | R1 | #5 | #14, #19, #20, #26, #44, #47, #62, #63 |
 | #50 | Spec drafting: find the checks a repo already runs, prove they work, ask once | R1 | #5 | #19, #26, #32, #37, #45, #54 |
 | #44 | Extension host and the extension API | R1 | #1 | #13, #16 |
 | #45 | Readings: your time, agent spend and lifecycle numbers | R1 | #4 | #18, #20, #44 |
@@ -266,5 +273,7 @@ flowchart TD
 | #57 | Project map: each part's sessions, issues and evidence (Work → Map, dr map) | R1 | #4 | #14, #19, #32, #35, #37 |
 | #60 | Spike: the app on gpui-kit | R1 | #4 | nothing |
 | #61 | Try an extension side by side: a copy, a replay, one decision | R2 | #6 | #44, #54, #59 |
+| #62 | What it learns: a learned layer over a base it never changes, local first, with a history you can roll back | R1 | #5 | #14 |
+| #63 | Read by reference: your agent reads history and evidence a slice at a time, through handles | R1 | #5 | #14, #20 |
 | #58 | The line under the menu bar, in the app | R2 | #6 | #22, #34, #35, #60 |
 | #59 | Add anything: your agent builds an extension from one sentence, checked before install and improved with use | R2 | #6 | #44, #47, #48, #53, #60 |
