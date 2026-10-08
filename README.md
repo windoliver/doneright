@@ -10,7 +10,7 @@ Writing code is cheap now. Knowing a change is right is the bottleneck. In a 30-
 ## Highlights
 
 - **Proof, not promises.** When an agent claims "done", "fixed" or "no visible change", DoneRight runs the checks itself. A fix counts only if its check fails on the old code and passes on yours.
-- **No config to write.** `dr setup`, run once per machine, drafts each repo's checks from what's already there: CI, package scripts, `AGENTS.md`, and the checks you kept asking agents about. It runs each one once and asks you to approve. Agents propose the rest, such as a journey for a page they change.
+- **Nothing to set up.** Install it and you're done. Each repo's checks are drafted from what's already there: CI, package scripts, `AGENTS.md`, and the checks you kept asking agents about. It runs each one once and asks you to approve. Agents propose the rest, such as a journey for a page they change.
 - **Five honest verdicts.** `PASS`, `FAIL`, `INCONCLUSIVE`, `BLOCKED` and `INVALID`. A skipped or unrun check is never green.
 - **Only what needs you.** Taste calls, approvals, and blocks only you can clear land in one inbox. Answers you've given before are reused, and your answer goes straight back into the agent's running session.
 - **Real surfaces.** Browser journeys run on your real local stack, with video and screenshots as evidence. Ports, test accounts and devices are leased per session, so parallel agents don't collide.
@@ -27,30 +27,32 @@ Version 0 runs from a checkout and needs Node 22.19 or newer and Rust. The npm p
 git clone https://github.com/windoliver/doneright && cd doneright
 npm install && npm run build
 npm link     # puts `dr` on your PATH
-dr setup     # once per machine: learns from your agent history, adds the hooks, drafts each repo's checks
 dr doctor    # checks the hooks, ports, disk and sign-ins
 ```
 
-You don't write any config, and there's nothing to run in each repo. `dr setup` reads your agent history and writes what it learned into a local wiki, every line with its source. It asks only what your history leaves unclear:
+Installing is the only step: there's no setup to run, no config to write, and nothing to run in each repo. The first `dr` command, or the first launch of the app, sets everything up: it reads your agent history into a local wiki, every line with its source, starts the hub, and adds its hooks in watch-only mode, so no verdict blocks and no stop is held until you approve something. A few safety rules apply from the start, such as no killing processes by name or port. It asks you nothing:
 
 ```text
-$ dr setup
+$ dr doctor
+First run: setting up. Nothing to answer.
 Read 212 sessions and 64 notes on this machine, in 3 repos: shop, api, docs.
 Wrote your wiki: ~/.doneright/wiki, 38 pages. Every line names its source.
-3 things weren't clear:
-1  api starts two ways in your history. Which should agents use?
-     a  docker compose up api   since Sep 12 · 14 sessions · recommended
-     b  npm run dev             before Sep 12 · 9 sessions
-   [a/b/other/skip] a
-2  Before/after screenshots on UI changes: you asked 41 times in shop, never on hotfix branches.
-   Ask on hotfixes too? [y/N/skip] n
-3  STRIPE_TEST_KEY came from ~/.config/shop/stripe.env 30 times and from your shell twice.
-   Always use the file? [Y/n/skip] y
-Add hooks for Claude Code and Codex at user level? [y/N/diff] y
-✓ Set up. Agents read your wiki when they start. Each repo's checks come to you when an agent starts work there.
+Added watch-only hooks to Claude Code and Codex. To remove them, say so in the app or to your agent, or run dr setup --undo.
+Codex will ask you once to trust the new hooks, in /hooks.
+3 open questions, each asked when it matters.
+✓ Hooks, ports, disk and sign-ins look fine.
 ```
 
-Setup doesn't touch any repo. When an agent starts work in `~/code/shop`, its checks, drafted from the wiki and the repo and run once in the background, reach your inbox:
+What your history left unclear waits until it matters. The first time an agent starts `api`, you get a normal ask:
+
+```text
+api starts two ways in your history. Which should agents use?
+  a  docker compose up api   since Sep 12 · 14 sessions · recommended
+  b  npm run dev             before Sep 12 · 9 sessions
+  Other · Skip
+```
+
+None of this touches a repo. When an agent starts work in `~/code/shop`, its checks, drafted from the wiki and the repo and run once in the background, reach your inbox:
 
 ```text
 Approve the drafted spec for ~/code/shop
@@ -117,7 +119,7 @@ You don't need special prompts. DoneRight briefs each session when it starts and
 
 | You want | Tell your agent | What DoneRight does |
 |---|---|---|
-| A repo set up without writing config | Nothing. `dr setup` covers every repo | The first time an agent works in a repo, its checks, drafted from the repo and your wiki and run once, come to you as one approval. Ask for extra journeys if you want them: "Add journeys for sign-up and checkout." |
+| A repo set up without writing config | Nothing. Installing covers every repo | The first time an agent works in a repo, its checks, drafted from the repo and your wiki and run once, come to you as one approval. Ask for extra journeys if you want them: "Add journeys for sign-up and checkout." |
 | A fix that stays fixed | "Fix #123." | Tells the agent at session start that a fix begins with a failing test, reads #123's acceptance criteria, and requires the test to fail on the merge base and pass on your branch. You don't have to ask for the test |
 | No visible change | "Refactor the billing module with no visible change." | Diffs the journeys against the merge base: screens, requests and timings |
 | Work while you're away | "Finish the open PRs on this branch. Ask me only taste calls." | Runs slow checks in the background, posts verdicts as commit statuses, and batches taste calls in the inbox |
@@ -180,7 +182,7 @@ We borrow from all four. The details are in [the product doc](docs/product.md#wh
 
 **Does it need an SDK?** No. It reads what agents and apps already record: transcripts, hooks, OpenTelemetry, your app's own tables and vendor usage APIs.
 
-**Do I have to write `done.yaml`?** No. `dr setup` drafts it from your CI, scripts and instruction files for every repo in your agent history, and a repo you start later gets its draft when an agent starts work there. Agents propose journeys as they work. You approve each draft once, and you can still edit the file by hand.
+**Do I have to write `done.yaml`?** No. DoneRight drafts it from your CI, scripts and instruction files for every repo in your agent history, and a repo you start later gets its draft when an agent starts work there. Agents propose journeys as they work. You approve each draft once, and you can still edit the file by hand.
 
 **Does it send my code or transcripts anywhere?** No. Nothing leaves your machine unless you install and turn on an extension that syncs.
 
@@ -188,7 +190,9 @@ We borrow from all four. The details are in [the product doc](docs/product.md#wh
 
 **Does it replace CI?** For many projects it can. Verdicts are commit statuses that branch protection can require, so CI isn't needed just to prove a change.
 
-**What if it gets in my way?** `dr off` makes every gate watch-only at once, and `dr setup --undo` removes everything it installed.
+**How do I change a setting?** There's no settings page. Say it in words, in the app's box or to your agent: "stop checking lint in shop", "forget my screenshot habit", "learn again". Each comes back as a proposed change you approve.
+
+**What if it gets in my way?** `dr off` makes every gate watch-only at once. To take it off an agent, say so, such as "remove DoneRight from Codex"; with your yes, that agent's settings are restored exactly. In a script, `dr setup --undo` removes everything it installed.
 
 **Why "DoneRight"?** Because "done" isn't enough.
 

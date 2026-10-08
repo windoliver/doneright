@@ -63,6 +63,7 @@ flowchart TD
     T40["#52 Parallel sessions"]
     T41["#53 Plan usage"]
     T43["#55 paseo adapter"]
+    T49["#61 Try an extension side by side"]
     T46["#58 The line under the menu bar, in the app"]
     T47["#59 Add anything"]
   end
@@ -190,6 +191,9 @@ flowchart TD
   T21 --> T45
   T24 --> T45
   T26 --> T45
+  T33 --> T49
+  T42 --> T49
+  T47 --> T49
   T11 --> T46
   T23 --> T46
   T24 --> T46
@@ -203,7 +207,7 @@ flowchart TD
 
 ## Later releases
 
-- #6 R2 · Find, and trust the numbers — blocked by #3; tasks so far: #40, #41, #42, #49, #52, #53, #55, #58, #59
+- #6 R2 · Find, and trust the numbers — blocked by #3; tasks so far: #40, #41, #42, #49, #52, #53, #55, #61, #58, #59
 - #7 R3 · Change with proof — blocked by #6
 - #8 R4 · Keep — blocked by #7
 - #9 R5 · CI — blocked by #1, #6
@@ -261,5 +265,6 @@ flowchart TD
 | #56 | Spike: Effect 4 or plain TypeScript for the hub core | R1 | #1 | #12 |
 | #57 | Project map: each part's sessions, issues and evidence (Work → Map, dr map) | R1 | #4 | #14, #19, #32, #35, #37 |
 | #60 | Spike: the app on gpui-kit | R1 | #4 | nothing |
+| #61 | Try an extension side by side: a copy, a replay, one decision | R2 | #6 | #44, #54, #59 |
 | #58 | The line under the menu bar, in the app | R2 | #6 | #22, #34, #35, #60 |
 | #59 | Add anything: your agent builds an extension from one sentence, checked before install and improved with use | R2 | #6 | #44, #47, #48, #53, #60 |

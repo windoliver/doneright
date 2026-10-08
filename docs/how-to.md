@@ -22,24 +22,26 @@ Version 0 runs from a checkout of this repo and needs Node 22.19 or newer and Ru
 git clone https://github.com/windoliver/doneright && cd doneright
 npm install && npm run build
 npm link     # puts `dr` on your PATH
-dr setup
 ```
 
-Run `dr setup` once per machine, from any folder, or open the DoneRight app: its first run is the same setup, with the progress, the questions as cards and the changes to each agent shown before one click. There's nothing to run per repo.
+Installing is the only step. There's no setup screen, no Settings page and nothing to run per repo. The first time you open the DoneRight app or run any `dr` command, it sets itself up:
 
-1. It reads your Claude Code and Codex history on your machine and writes what it learned into your wiki, `~/.doneright/wiki/`: the checks you keep asking for, how your stacks start, where credentials live (names only, never values) and the rules you've given agents. Every line names its source. It asks only where your history disagrees, at most five questions, each with the evidence on both sides and a recommended answer. A skipped one waits until an agent starts work it affects. A few one-time settings come with defaults already chosen.
-2. It shows the exact hook entries it will add, at user level, for Claude Code and Codex. It merges with hooks you already have, and writes nothing until you say yes.
-3. Nothing else. Each repo's checks are drafted later, from the wiki and the repo, as the next section describes.
+1. It reads your Claude Code and Codex history on your machine and writes what it learned into your wiki, `~/.doneright/wiki/`: the checks you keep asking for, how your stacks start, where credentials live (names only, never values) and the rules you've given agents. Every line names its source. A few one-time settings come with defaults already chosen.
+2. It starts the hub and adds its hooks for Claude Code and Codex, at user level, merged with hooks you already have. They start watch-only: no verdict blocks and no stop is held until you approve something, such as a repo's drafted checks when an agent first starts there. A few safety rules apply from the start, such as no killing processes by name or port.
+3. It tells you in one line what it added and how to remove it. Each repo's checks are drafted later, from the wiki and the repo, as the next section describes.
 
-Run it again any time to re-learn. It reads only what it hasn't seen. New facts go into the wiki, and a change to what decides "done" reaches you as a proposal.
+It asks nothing at install. Where your history disagrees, it keeps at most five open questions, each with the evidence on both sides and a recommended answer, and asks each one when it matters, as a normal ask. For example, which way `api` starts is asked the first time an agent starts `api`.
 
-- **Codex** asks you to approve new hooks once. Open Codex and approve them in `/hooks`.
+To change anything, say it in words, in the app's box or to your agent, such as "stop checking lint in shop" or "forget my screenshot habit". It comes back as a proposed change you approve, like every other change. Saying "learn again" re-reads only the history it hasn't seen: new facts go into the wiki, and a change to what decides "done" reaches you as a proposal.
+
+- **Codex** still asks you once to trust the new hooks. That prompt is Codex's own: approve them in `/hooks`.
 - **Your existing hooks** keep working. `dr doctor` reports any other hook-based tool it finds and the order hooks run in.
-- **Remove it** with `dr setup --undo`, or Remove from agents in the app's Settings, which removes everything setup added. For a quick pause, `dr off` makes every gate watch-only, and `dr on` turns them back on.
+- **Remove it** by saying so, such as "remove DoneRight from Codex". With your yes, that agent's settings are restored exactly. For a quick pause, `dr off` makes every gate watch-only, and `dr on` turns them back on.
+- **Scripts and CI** can run `dr setup`, which does the same steps without asking anything, and `dr setup --undo`, which removes them. Nobody has to run either.
 
 ## What "done" means, drafted for you
 
-Each repo's checks live in `.doneright/done.yaml` ([#32](https://github.com/windoliver/doneright/issues/32)), but you don't write it. `dr setup` drafts it for each repo in your agent history, from what the repo already says ([#50](https://github.com/windoliver/doneright/issues/50)):
+Each repo's checks live in `.doneright/done.yaml` ([#32](https://github.com/windoliver/doneright/issues/32)), but you don't write it. DoneRight drafts it for each repo in your agent history, from what the repo already says ([#50](https://github.com/windoliver/doneright/issues/50)):
 
 | Source | What it gives |
 |---|---|
@@ -49,9 +51,9 @@ Each repo's checks live in `.doneright/done.yaml` ([#32](https://github.com/wind
 | Playwright or Cypress suites | The journeys you already have |
 | Your past sessions in this repo | The checks you kept asking agents about |
 
-Nothing runs in a repo you haven't trusted. Claude Code and Codex already record which folders you trust, and DoneRight reuses that, so setup asks nothing per repo. In each trusted repo, every candidate runs once in the background, in a clean environment, and one that runs zero tests, can't start or already fails is shown with its reason and left out. A repo neither agent trusts waits until you trust it.
+Nothing runs in a repo you haven't trusted. Claude Code and Codex already record which folders you trust, and DoneRight reuses that, so it asks nothing per repo. In each trusted repo, every candidate runs once in the background, in a clean environment, and one that runs zero tests, can't start or already fails is shown with its reason and left out. A repo neither agent trusts waits until you trust it.
 
-Each draft reaches your inbox when an agent starts work in its repo, with its checks already run. You approve it once, keeping, dropping or editing each line. `dr` writes `.doneright/`, and you commit it like any other change. A repo you start after setup gets its draft the same way. Until you approve, verdicts there are watch-only. To see a repo's spec, draft one now, or change it in your own words, run `dr spec` in that repo.
+Each draft reaches your inbox when an agent starts work in its repo, with its checks already run. You approve it once, keeping, dropping or editing each line. `dr` writes `.doneright/`, and you commit it like any other change. A repo you start later gets its draft the same way. Until you approve, verdicts there are watch-only. To see a repo's spec, draft one now, or change it in your own words, run `dr spec` in that repo.
 
 **It keeps itself current.**
 
@@ -124,7 +126,7 @@ DoneRight briefs every session when it starts, so agents already know how to cla
 
 **Set up a repo without writing config**
 
-There's nothing to say. After `dr setup`, the first time an agent works in a repo, its checks come to you once, drafted from the repo and your wiki and run on your stack. For journeys beyond the ones you have, ask:
+There's nothing to say. The first time an agent works in a repo, its checks come to you once, drafted from the repo and your wiki and run on your stack. For journeys beyond the ones you have, ask:
 
 > Add journeys for sign-up and checkout.
 
@@ -237,6 +239,6 @@ Each verdict posts a commit status named `doneright/verdict` ([#46](https://gith
 | Evidence | `~/.doneright/evidence/` | Screenshots, video and traces, named by content hash; kept 30 days unless a decision cites them |
 | Transcript archive | `~/.doneright/archive/` | Copies of agent transcripts, saved before the agents' own cleanup deletes them |
 | Your wiki | `~/.doneright/wiki/` | Markdown pages of what DoneRight learned, every line with its source. Edit them freely; your edits are kept. Agents read them and propose changes, but never write them |
-| Repo specs | `.doneright/` in each repo | Drafted by `dr setup`, approved by you and reviewed like code; agents can't edit them |
+| Repo specs | `.doneright/` in each repo | Drafted for you, approved by you and reviewed like code; agents can't edit them |
 
 Keys and tokens are redacted on the way in. Nothing leaves your machine unless you install and turn on an extension that syncs.
