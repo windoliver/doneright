@@ -117,8 +117,8 @@ You don't need special prompts. DoneRight briefs each session when it starts and
 
 | You want | Tell your agent | What DoneRight does |
 |---|---|---|
-| A repo set up without writing config | "Set up DoneRight for this repo, with journeys for sign-up and checkout." | The agent proposes the spec with `dr_propose`. DoneRight runs every check once on your stack and sends you one approval, with the journeys' videos |
-| A fix that stays fixed | "Fix #123. Reproduce it with a failing test first, then say done." | Reads #123's acceptance criteria, and requires the test to fail on the merge base and pass on your branch |
+| A repo set up without writing config | Nothing. `dr setup` covers every repo | The first time an agent works in a repo, its checks, drafted from the repo and your wiki and run once, come to you as one approval. Ask for extra journeys if you want them: "Add journeys for sign-up and checkout." |
+| A fix that stays fixed | "Fix #123." | Tells the agent at session start that a fix begins with a failing test, reads #123's acceptance criteria, and requires the test to fail on the merge base and pass on your branch. You don't have to ask for the test |
 | No visible change | "Refactor the billing module with no visible change." | Diffs the journeys against the merge base: screens, requests and timings |
 | Work while you're away | "Finish the open PRs on this branch. Ask me only taste calls." | Runs slow checks in the background, posts verdicts as commit statuses, and batches taste calls in the inbox |
 | A line it won't cross | "Ask me before anything that costs money or touches production." | The agent's question reaches your inbox as an approval, and the session waits for your answer |

@@ -124,15 +124,17 @@ DoneRight briefs every session when it starts, so agents already know how to cla
 
 **Set up a repo without writing config**
 
-> Set up DoneRight for this repo, with journeys for sign-up and checkout.
+There's nothing to say. After `dr setup`, the first time an agent works in a repo, its checks come to you once, drafted from the repo and your wiki and run on your stack. For journeys beyond the ones you have, ask:
 
-The agent proposes the spec with `dr_propose`. DoneRight runs every check once on your stack, then sends you one approval with the journeys' videos.
+> Add journeys for sign-up and checkout.
+
+The agent proposes them with `dr_propose`, and each runs once, with its video, before it reaches you.
 
 **Fix a bug so it stays fixed**
 
-> Fix #123. Reproduce it with a failing test first, commit the test, then make it pass and say done.
+> Fix #123.
 
-DoneRight checks that the test fails on the merge base and passes on your branch. A test that passes on both can't prove anything, so it's `INVALID`.
+You don't have to ask for a failing test. Every session is told at start that a fix begins with one, and DoneRight checks that the test fails on the merge base and passes on your branch. A test that passes on both can't prove anything, so it's `INVALID`.
 
 **Change code without changing what users see**
 

@@ -583,7 +583,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 **What you see**
 
 - A terminal view for numbers and follow-ups: `dr status`, `dr inbox`, `dr show`.
-- A local web view, `dr view`, for screenshots side by side, one-click answers to taste calls, open items and charts. No hosting.
+- A local web view, `dr view`, for screenshots side by side, one-click answers to taste calls, open items and charts. No hosting. Each taste call shows your past calls on the same screen, so you judge with your own history in view.
 - Each verdict is a GitHub commit status that branch protection can require. A PR comment with screenshots and `dr report`, one HTML file per change, follow in R2.
 - `dr status` and the Work view list every session from every agent and repo, built for dozens at once: grouped by repo and issue, with what needs you and what's stuck first, and quiet sessions folded into one line. They flag two sessions on one issue, a session an app quit or a usage limit interrupted, and an idle session with work that isn't pushed. A Map switch shows the same work per project: each part, from the repo's own structure, with the sessions on it now, its open issues and PRs, and its evidence, the tests and journeys with their last result, plus the parts nothing proves yet. Every change, verdict and open item has a three-line plain summary.
 
@@ -743,7 +743,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 - Reads the memory and instruction files of Claude Code, Codex, pi and Cursor, plus their transcripts.
 - Turns each lesson into a guard, a shared rule or a removal, ranked for you to keep or remove.
 - Your “too complicated” remarks and reverts, and the change sizes you accept, become each repo's size budget.
-- Answers you keep repeating become proposed policy. Recurring errors get fixes, measured and promoted like guards.
+- Answers you keep repeating become proposed policy. After the same kind of taste call gets the same answer three times, a rule is offered, bounded by what the recorded screens can check, such as the total and the pay button staying in view; with your yes, the next ones are decided for you, kept with their screenshots and an overrule. Prices, totals and anything outward-facing still always come to you. Recurring errors get fixes, measured and promoted like guards.
 - Saved decisions are enforced: an agent reviving a rejected direction is stopped, and an unanswered decision ages and escalates instead of expiring.
 - Every change to instruction files, skills, hooks, guards or policy is replayed against 20 to 50 real past tasks taken from your transcripts before it lands. Each incident adds a task.
 
