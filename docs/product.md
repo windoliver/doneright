@@ -105,6 +105,7 @@ export default function (dr) {
 |---|---|---|---|---|
 | "Is it really done?" | A verdict with its proof: journeys, screenshots, the merge base | Prove "done" | Gates, the record, adapters (holding the stop) | R1 |
 | Agents know how you work | Your wiki: what you check, how stacks start, your rules and answers, each with its source | Wiki | The record (sources, decisions), adapters (session-start context) | R1 |
+| Which part is moving, and what's proven | The project map: each part with its sessions, issues and PRs, evidence and gaps | The view (Map) | The record, gates | R1 |
 | Only what needs you | One count, asks in batches, questions decided for you | Inbox and decisions | Asks, the record | R1 |
 | Your answer reaches the agent | The answer inside the running or idle session | Agent adapters | Adapters (delivery), asks | R1 |
 | Many agents at once | Heads-ups, hard stops, leased ports and accounts | Parallel sessions | The record (the session map), adapters (context and deny), gates | R1 rules, R2 |
@@ -584,7 +585,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 - A terminal view for numbers and follow-ups: `dr status`, `dr inbox`, `dr show`.
 - A local web view, `dr view`, for screenshots side by side, one-click answers to taste calls, open items and charts. No hosting.
 - Each verdict is a GitHub commit status that branch protection can require. A PR comment with screenshots and `dr report`, one HTML file per change, follow in R2.
-- `dr status` and the Work view list every session from every agent and repo, built for dozens at once: grouped by repo and issue, with what needs you and what's stuck first, and quiet sessions folded into one line. They flag two sessions on one issue, a session an app quit or a usage limit interrupted, and an idle session with work that isn't pushed. Every change, verdict and open item has a three-line plain summary.
+- `dr status` and the Work view list every session from every agent and repo, built for dozens at once: grouped by repo and issue, with what needs you and what's stuck first, and quiet sessions folded into one line. They flag two sessions on one issue, a session an app quit or a usage limit interrupted, and an idle session with work that isn't pushed. A Map switch shows the same work per project: each part, from the repo's own structure, with the sessions on it now, its open issues and PRs, and its evidence, the tests and journeys with their last result, plus the parts nothing proves yet. Every change, verdict and open item has a three-line plain summary.
 
 **Your time**
 
@@ -648,7 +649,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 - Bills and usage for the vendors you actually use, through their APIs, each with a check badge.
 - Findings ranked by dollars per month: idle services, oversized resources, backup bloat, unattributed spend, dev and test spend, unused plans, credit runway.
-- The infra map: one full discovery, then re-mapped only when infra changes.
+- The infra map: one full discovery, then re-mapped only when infra changes. It's drawn as a layer on the project map, so each part shows the services and vendors it uses.
 
 **Parallel sessions**
 
@@ -887,6 +888,7 @@ Four sources shaped the details. One is Anthropic's own write-ups on making clau
 | The same rule in production | Stripe-style reconciliation: check the invariant on live data after a short delay. | A mismatch in production becomes a replayable failing case and a finding. | R2 |
 | Check the merged result | When two branches touch the code behind one invariant, run it on the merge. | Team guards catch teammates silently undoing each other. | R4 |
 | Fixed rules for flaky CI, then a first report fast | Anthropic's CI on-call agent: fixed rules filter flaky failures and noise, the first analysis lands in a median 14 minutes, a lessons file feeds the next one, and a human approves before merge. | The CI release copies this, with a separate limited-permission agent for deploys. | R5 |
+| Memory that learns | [Hindsight](https://github.com/vectorize-io/hindsight): facts kept with exact quotes and a proof count, living knowledge pages written as markdown, and search that fuses keyword, vector, graph and time. | Wiki claims carry proof counts, and standing questions become pages the wiki rewrites as it learns. Hindsight itself can be an optional extension behind the wiki's index; it brings its own model and server, so it's never the default. | R1, later |
 | The history is the memory | [OptChat](https://gist.github.com/VictorTaelin/91837951a5ce5b38f341ec1ba1df6449), an open spec: every message is kept word for word, a cheap model folds the log into a tree of one-line summaries with the user's own words ranked first, and the agent zooms into a line when it needs detail. A correction given in chat outlives the instruction file. | The ledger keeps the full history across all agents. Any agent can search it or zoom into past decisions and corrections through MCP, and the latest ruling wins. | R4 |
 | A browser speed playbook | Anthropic's computer-use guide: shrink screenshots, keep only the last few at full size so the cache keeps working, batch independent actions, and use a faster model where waiting matters. | Ready-made changes the tool can propose and prove for slow browser tasks. | R3 |
 | Warn until a replay proves precision | hermes-agent's code-health rules only warn until a frozen replay of past merged PRs shows they're precise, and their switch is read from main ([baa0769](https://github.com/NousResearch/hermes-agent/commit/baa07694a8e326c2b77c5f00880eaf948fd38b04)). | Guards move from warning to blocking the same way, and no change can relax its own guard. | R4 |
@@ -948,7 +950,7 @@ The release details are in the [roadmap](#proof-of-done-first-then-everything-el
 | Name | DoneRight, chosen on October 5 because it says the job in plain words. It replaced the working name Flight Recorder, which read as aviation or Java. | Done |
 | Core size | The core is the record, gates, asks and adapters. Everything else ships as an extension, including our own features, and a new core feature needs a reason no extension can meet. | R1 |
 | Extension trust | Extensions run as code. They install at user level and are pinned to a version. A project's extensions load only after you trust the project. | R1 |
-| Language | TypeScript on Node for the core, extensions, local view, MCP server and team server. Extensions load in-process as TypeScript modules, the way pi's do, and everything around the product (MCP, Playwright, agent plugins, Cloudflare Workers) is TypeScript too. The one native piece is the hook client, a tiny Rust binary that forwards each hook call to the running hub and allows the action if the hub is down, because hooks run on every tool call. Rust comes in elsewhere only where profiling shows a need, as a native module. Contracts are JSON Schemas with conformance tests and a JSON-RPC mode, so extensions in any language can run out of process. | R1 |
+| Language | TypeScript on Node for the core, extensions, local view, MCP server and team server. Extensions load in-process as TypeScript modules, the way pi's do, and everything around the product (MCP, Playwright, agent plugins, Cloudflare Workers) is TypeScript too. The one native piece is the hook client, a tiny Rust binary that forwards each hook call to the running hub and allows the action if the hub is down, because hooks run on every tool call. Rust comes in elsewhere only where profiling shows a need, as a native module. Contracts are JSON Schemas with conformance tests and a JSON-RPC mode, so extensions in any language can run out of process. Effect 4 is decided by a one-day spike before the hub is built: if it passes, it's used only inside the hub core, and the CLI, the extension API, contracts and storage stay plain TypeScript. | R1 |
 | Receipt format | Build on an existing attestation standard (in-toto or SLSA) so CI and deploy tools can verify it | R3 |
 | Hosted app | Not in v1. Terminal, local view and report files first. The team server is the same app plus a push-only sync, content-free by default: self-hosted with Docker, or on Cloudflare for a small team, and in the customer's own cloud for an enterprise. Only after Decision 2. | Decision 2 |
 | FinOps scope | Infra cost for the vendors you use in R2 and R3. Billing emails, every other vendor and commitments come after Decision 2. | R2 |

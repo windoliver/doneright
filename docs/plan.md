@@ -20,6 +20,7 @@ flowchart TD
     T33["#44 Extension host and the extension API"]
     T36["#47 Fixture corpus"]
     T37["#48 Agent test harness"]
+    T44["#56 Spike"]
   end
   subgraph E2["#2 Asks, and getting answers back R1 week 2, Oc…"]
     T11["#22 Asks"]
@@ -45,6 +46,7 @@ flowchart TD
     T26["#37 Journeys"]
     T27["#38 End-to-end"]
     T34["#45 Readings"]
+    T45["#57 Project map"]
   end
   subgraph E5["#5 Codex, spec drafting and dogfooding R1 week …"]
     T28["#39 Codex adapter"]
@@ -66,6 +68,7 @@ flowchart TD
   T2 --> T3
   T1 --> T4
   T3 --> T5
+  T44 --> T5
   T2 --> T6
   T5 --> T6
   T5 --> T7
@@ -175,6 +178,12 @@ flowchart TD
   T21 --> T43
   T33 --> T43
   T37 --> T43
+  T1 --> T44
+  T3 --> T45
+  T8 --> T45
+  T21 --> T45
+  T24 --> T45
+  T26 --> T45
 ```
 
 ## Later releases
@@ -195,7 +204,7 @@ flowchart TD
 | #13 | Contracts: JSON Schemas for events, the hook protocol, verdicts, asks and decisions | R1 | #1 | #12 |
 | #14 | Record: append-only SQLite event log and projections | R1 | #1 | #12, #13 |
 | #15 | Evidence store: content-addressed files, redaction and retention | R1 | #1 | #12 |
-| #16 | Hub daemon on a Unix socket | R1 | #1 | #14 |
+| #16 | Hub daemon on a Unix socket | R1 | #1 | #14, #56 |
 | #17 | dr-hook: Rust hook client with fail-open and fast rules | R1 | #1 | #13, #16 |
 | #18 | Claude Code adapter, watch-only: sessions, tool calls and commits | R1 | #1 | #16, #17, #44, #47 |
 | #19 | CLI basics: setup, status, doctor, off and on, debug bundle | R1 | #1 | #16, #18 |
@@ -234,3 +243,5 @@ flowchart TD
 | #52 | Parallel sessions: a session map, notices to each agent, and dry merges | R2 | #6 | #18, #36, #39, #48 |
 | #53 | Plan usage: each account's windows and every task's tokens | R2 | #6 | #18, #39, #45, #47 |
 | #55 | paseo adapter: the done gate, policy answers and Needs you for agents run through paseo | R2 | #6 | #23, #26, #32, #44, #48 |
+| #56 | Spike: Effect 4 or plain TypeScript for the hub core | R1 | #1 | #12 |
+| #57 | Project map: each part's sessions, issues and evidence (Work → Map, dr map) | R1 | #4 | #14, #19, #32, #35, #37 |
