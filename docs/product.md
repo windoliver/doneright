@@ -548,6 +548,7 @@ What any hook runtime needs in order to host a guard:
 | Main moved again | When main moves, the agent rebases its branch, re-runs the affected checks and refreshes the verdict, so you never paste a conflict banner back to it. | No PR waits on you for a rebase | R4 |
 | Agents stop to ask what you already answered | A policy check runs whenever an agent stops with a question, asks one, or hits a permission prompt. Covered questions are answered and the agent goes on. Answers you keep repeating become proposed policy. | Questions with a standing answer never reach you | R1, R4 |
 | The same error keeps costing time | Every failed call is recorded by signature. A recurring one gets a known fix applied before it fails again, a root-cause change with proof, or a BLOCKED item for its owner. | No error signature keeps coming back | R1, R4 |
+| Agents overbuild | A size check on every claim, against the plan and your past changes; plans sized before code; anything new the plan doesn't name is a decision | A fix stays the size of the problem | R1 |
 | Agents forget or ignore what you told them | Reads every agent's memory and transcripts. Checkable lessons become guards, the rest become one rule set written into each agent's instruction file, and you answer keep or remove from a ranked list. | No correction has to be given twice, to any agent | R4 |
 | A rule change made agents worse | Every change to instruction files, skills, hooks, guards or policy is replayed against real past tasks from your transcripts before it lands. | No configuration change lowers the pass rate unnoticed | R4 |
 | CI is flooded and red | When CI runs, caps per agent, flaky/stale/real labels, all tested on a replay of archived CI history. On a main that's already red, each failure is marked as new or inherited, and each job's flake rate is a reading. | Every red run is labeled real, flaky or inherited within an hour | R5 |
@@ -596,7 +597,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 **Done gate**
 
 - Your definition of done is drafted from what the repo already runs and what you've asked agents before, and you approve it once. Not happy with a line? Say what to change in your own words, in the view or to your agent; it comes back as a diff, and nothing is written until you apply it. It runs whenever an agent says done or opens a PR. It reads the issue's acceptance criteria, and the verdict decides whether the PR says "Closes" or "Part of". When the agent wrote a plan, the gate runs the plan's proof steps and compares the diff with it.
-- The tool owns the proof and gives a verdict. Open items are tracked, and only taste calls come to you. A claim that stalls, with the same open items twice and no new evidence, stops going back to the agent: it comes to you once, as a decision to split the issue, fund the live runs it needs, or accept what's proven.
+- The tool owns the proof and gives a verdict. Open items are tracked, and only taste calls come to you. A claim that stalls, with the same open items twice and no new evidence, stops going back to the agent: it comes to you once, as a decision to split the issue, fund the live runs it needs, or accept what's proven. Every claim also gets a size check, with no model: lines, files, new dependencies, folders or services, files outside the plan, code no test reaches and duplicated blocks, against the plan and what you've accepted for the same kind of change in that repo. Over that, the agent hears it first and trims or says why; still over, it's one taste call for you. Size alone never fails a change.
 - A policy check answers the questions your instruction files and saved decisions already cover, whether the agent stops with a question, asks one or hits a permission prompt.
 
 **Environment up**
@@ -609,7 +610,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 **Journeys**
 
 - Browser and API journeys first, checking the end state on a real stack, with video and screenshots in the ledger.
-- The agent's test plan is checked by the tool before tests are written: real services on the claimed path, a test that can fail before the fix, and a cost within budget.
+- The agent's test plan is checked by the tool before tests are written: real services on the claimed path, a test that can fail before the fix, and a cost within budget. On a bigger issue the plan also names the files and parts it will change, and a plan past the repo's usual size comes to you once, before any code: approve, shrink or split. A dependency, service or top-level folder the plan doesn't name is a decision, answered by your standing rule or asked.
 - The final check runs in a context that didn't write the code, and covers the change plus its nearest neighboring flows.
 
 **Trust the record**
@@ -740,6 +741,7 @@ Each column is one week, starting Monday, October 5. Decision 1, in mid-November
 
 - Reads the memory and instruction files of Claude Code, Codex, pi and Cursor, plus their transcripts.
 - Turns each lesson into a guard, a shared rule or a removal, ranked for you to keep or remove.
+- Your “too complicated” remarks and reverts, and the change sizes you accept, become each repo's size budget.
 - Answers you keep repeating become proposed policy. Recurring errors get fixes, measured and promoted like guards.
 - Saved decisions are enforced: an agent reviving a rejected direction is stopped, and an unanswered decision ages and escalates instead of expiring.
 - Every change to instruction files, skills, hooks, guards or policy is replayed against 20 to 50 real past tasks taken from your transcripts before it lands. Each incident adds a task.

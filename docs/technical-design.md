@@ -23,7 +23,7 @@ The product, its reasoning and the roadmap are in the [product doc](./product.md
 ### Later, as extensions
 
 - Readings and money: vendor bills, the infra map, FinOps.
-- Policy beyond exact saved decisions, the memory keep-or-remove list, and fixes for recurring errors. Graph and vector indexes for the wiki, and a code graph, each rebuilt from its pages.
+- Policy beyond exact saved decisions, the memory keep-or-remove list, and fixes for recurring errors. Graph and vector indexes for the wiki, and a code graph, each rebuilt from its pages. Size budgets learned from the change sizes you accept and your "too complicated" remarks.
 - In R2: parallel sessions (a session map, notices to each agent and dry merges) and plan usage per account and per task. See [Parallel and plans](#parallel-sessions-and-plan-limits).
 - Team claims and merge checks across teammates' machines.
 - CI policies, receipts in a signed attestation format, and exports beyond GitHub: the status line, the weekly brief and OpenTelemetry.
@@ -224,6 +224,7 @@ sequenceDiagram
 - **Fast and slow lanes.** Checks that fit inside the hold, 60 seconds by default, run while the agent waits. Longer ones run in the background, the claim stays pending, and the verdict is delivered when it lands.
 - **Open items.** Sections of the final message headed "still open", "not verified" or "next steps" are parsed into open items.
 - **Stalled claims.** When a claim's open items come back unchanged on two stops in a row, with no new passing evidence, the hold stops sending the agent back for them. They become one decision for you: split the issue (what's proven closes now, and the rest moves to a new issue with what each item needs), fund the live runs it needs, or accept what's proven. A hold sends an agent back at most three times in a row without new evidence.
+- **Size and scope.** Every claim gets a size check that runs no model: lines and files changed, new dependencies, top-level folders, services or cloud resources, files outside the plan, code no test reaches (knip and coverage), and duplicated blocks (jscpd). It compares them with the plan and with the changes you accepted for the same kind of issue in that repo, the median of the last 20. Over that, the hold sends the numbers back once, with "cut it to what the issue needs, or say why each part is needed"; still over, it's one taste call for you with the biggest additions. Size never turns a verdict to FAIL. When the plan marks an issue as large, its scope section, the files and parts it will touch, is sized before any code, and a plan past the usual size comes to you once.
 
 ### An ask, and your answer getting back
 
@@ -249,7 +250,7 @@ Delivery uses two words exactly, as paseo defines them. To steer is to add your 
 
 ### Before each command
 
-dr-hook first checks the fast rules in `rules.json`, such as no kills by name or port, no workflow dispatch without approval, no bare `git stash` (the stash stack is shared by every worktree) and no git aimed at another worktree, so these hold even when the hub is down. It then asks the hub, which runs guards in watch, warn or block mode, the policy resolver for permission prompts, and lease checks for shared resources. Each decision is recorded as an event with its time and reason.
+dr-hook first checks the fast rules in `rules.json`, such as no kills by name or port, no workflow dispatch without approval, no bare `git stash` (the stash stack is shared by every worktree) and no git aimed at another worktree, so these hold even when the hub is down. Adding a dependency, a service, a cloud resource or a top-level folder that the plan doesn't name is a decision, answered by your standing rule or asked; with the hub down it's allowed and recorded. It then asks the hub, which runs guards in watch, warn or block mode, the policy resolver for permission prompts, and lease checks for shared resources. Each decision is recorded as an event with its time and reason.
 
 ## What each agent gives us, and the limits we design around
 
