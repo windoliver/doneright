@@ -1,0 +1,16 @@
+[package]
+name = "doneright-app"
+version = "0.0.1"
+edition = "2024"
+publish = false
+description = "DoneRight app prototype on gpui-kit: one Set up button, then the live flow map."
+
+[dependencies]
+gpui-kit = "0.7.1"
+
+[profile.dev]
+opt-level = 1
+debug = false
+
+[profile.dev.package."*"]
+opt-level = 2
