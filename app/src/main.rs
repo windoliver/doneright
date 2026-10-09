@@ -3,12 +3,17 @@
 //! and the home screen is a live map of the work: a task moves through the agent, its
 //! claim, the checks and you, with the sent-back loop drawn where it happens.
 
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
+
+mod more;
+use more::*;
 
 use gpui_kit::assets::IconName as Lucide;
 use gpui_kit::component::{
     ActiveTheme, Icon, Selectable as _, Sizable as _, StyledExt as _, Theme, ThemeMode, TitleBar, h_flex, v_flex,
     button::{Button, ButtonVariants as _},
+    input::{Input, InputEvent, InputState},
     progress::Progress,
     sidebar::{Sidebar, SidebarFooter, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
     tag::Tag,
@@ -29,7 +34,7 @@ enum St { #[default] Idle, Run, Ok, Back, You }
 enum Screen { Welcome, Setup, App }
 
 #[derive(Clone, Copy, PartialEq)]
-enum View { Flow, NeedsYou, Work, Learned }
+enum View { Flow, NeedsYou, Sessions, Map, Add, Learned, Wiki, Numbers }
 
 // ---------- the map: stations on one line, the checks as spokes on a hub ----------
 const W: f32 = 860.;
@@ -141,13 +146,36 @@ struct DoneRight {
     speed: f32,
     answered_at: Option<f32>,
     answer: Option<&'static str>,
-    rolled_back: bool,
     dark: bool,
     last: Instant,
+    flow_sel: usize,
+    paused: HashSet<&'static str>,
+    noted: HashSet<&'static str>,
+    map_repo: usize,
+    answers: HashMap<&'static str, &'static str>,
+    input: Entity<InputState>,
+    builds: Vec<Build>,
+    memory: Option<&'static str>,
+    rolled_back_items: HashSet<&'static str>,
+    rolled_since: bool,
+    _subs: Vec<Subscription>,
+}
+
+#[derive(Clone)]
+struct Build {
+    words: String,
+    t: f32,
+    installed: bool,
 }
 
 impl DoneRight {
-    fn new(cx: &mut Context<Self>) -> Self {
+    fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Tell DoneRight what you want, e.g. “hang every screenshot on a line under the menu bar”"));
+        let sub = cx.subscribe_in(&input, window, |this, _, ev: &InputEvent, window, cx| {
+            if let InputEvent::PressEnter { .. } = ev {
+                this.submit(window, cx);
+            }
+        });
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(Duration::from_millis(33)).await;
@@ -162,7 +190,11 @@ impl DoneRight {
             "setup" => (Screen::Setup, View::Flow),
             "flow" => (Screen::App, View::Flow),
             "needs" => (Screen::App, View::NeedsYou),
-            "work" => (Screen::App, View::Work),
+            "work" | "sessions" => (Screen::App, View::Sessions),
+            "map" => (Screen::App, View::Map),
+            "add" => (Screen::App, View::Add),
+            "wiki" => (Screen::App, View::Wiki),
+            "numbers" => (Screen::App, View::Numbers),
             "learned" => (Screen::App, View::Learned),
             _ => (Screen::Welcome, View::Flow),
         };
@@ -176,9 +208,19 @@ impl DoneRight {
             speed: 1.,
             answered_at: None,
             answer: None,
-            rolled_back: false,
             dark: false,
             last: Instant::now(),
+            flow_sel: std::env::var("DR_FLOW").ok().and_then(|v| v.parse().ok()).unwrap_or(0),
+            paused: HashSet::new(),
+            noted: HashSet::new(),
+            map_repo: 0,
+            answers: HashMap::new(),
+            input,
+            builds: if std::env::var("DR_BUILD").is_ok() { vec![Build { words: "Watch the receipts inbox for bounces".into(), t: 6.5, installed: false }] } else { vec![] },
+            memory: None,
+            rolled_back_items: HashSet::new(),
+            rolled_since: false,
+            _subs: vec![sub],
         }
     }
 
@@ -196,6 +238,9 @@ impl DoneRight {
                 }
             }
             Screen::App => {
+                for b in self.builds.iter_mut() {
+                    b.t = (b.t + dt).min(7.);
+                }
                 if self.playing {
                     self.t += dt * self.speed;
                     if let (Phase::Merged, done, _) = phase_at(self.t, self.answered_at) {
@@ -207,6 +252,20 @@ impl DoneRight {
             }
         }
         cx.notify();
+    }
+
+    fn submit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let text = self.input.read(cx).value().to_string();
+        if !text.trim().is_empty() {
+            self.start_build(text.trim().to_string());
+            self.input.update(cx, |s, cx| s.clean(window, cx));
+        }
+        cx.notify();
+    }
+
+    fn start_build(&mut self, words: String) {
+        self.builds.insert(0, Build { words, t: 0., installed: false });
+        self.view = View::Add;
     }
 
     fn restart(&mut self) {
@@ -238,7 +297,13 @@ impl DoneRight {
     }
 
     fn waiting(&self) -> bool { phase_at(self.t, self.answered_at).0 == Phase::Waiting }
-    fn needs_you(&self) -> usize { 1 + usize::from(self.screen == Screen::App && self.waiting()) }
+    fn needs_you(&self) -> usize {
+        let taste = usize::from(self.screen == Screen::App && self.waiting());
+        let asks = 3usize.saturating_sub(self.answers.len());
+        let memory = usize::from(self.memory.is_none());
+        let builds = self.builds.iter().filter(|b| b.t >= 6. && !b.installed).count();
+        taste + asks + memory + builds
+    }
 
     fn snapshot(&self) -> Snap {
         use Phase::*;
@@ -739,10 +804,13 @@ impl DoneRight {
                             .child(
                                 h_flex()
                                     .gap_2()
-                                    .child(Button::new("play").ghost().small().icon(if self.playing { Lucide::Pause } else { Lucide::Play }).label(if self.playing { "Pause" } else { "Play" }).on_click(cx.listener(|this, _, _, cx| { this.playing = !this.playing; cx.notify(); })))
+                                    .child(h_flex().gap_1().pr_2().children(["Fix #123 · shop", "Start an app · studio", "Add anything · screenshot-line"].into_iter().enumerate().map(|(i, t)| {
+                                        Button::new(("flowsel", i)).ghost().small().label(t).selected(self.flow_sel == i).on_click(cx.listener(move |this, _, _, cx| { this.flow_sel = i; cx.notify(); }))
+                                    })))
+                                    .when(self.flow_sel == 0, |d| d.child(Button::new("play").ghost().small().icon(if self.playing { Lucide::Pause } else { Lucide::Play }).label(if self.playing { "Pause" } else { "Play" }).on_click(cx.listener(|this, _, _, cx| { this.playing = !this.playing; cx.notify(); })))
                                     .child(Button::new("restart").ghost().small().icon(Lucide::RotateCcw).label("Restart").on_click(cx.listener(|this, _, _, cx| { this.restart(); this.playing = true; cx.notify(); })))
                                     .child(speed_btn("s1", "1×", 1., self, cx))
-                                    .child(speed_btn("s2", "2×", 2., self, cx)),
+                                    .child(speed_btn("s2", "2×", 2., self, cx))),
                             )
                             .child(Self::legend(pal)),
                     )
@@ -751,7 +819,11 @@ impl DoneRight {
                             .px_5()
                             .pt_4()
                             .child(div().text_lg().font_semibold().child("Now"))
-                            .child(div().text_sm().text_color(pal.muted_fg).child(Self::now_line(s.phase)))
+                            .child(div().text_sm().text_color(pal.muted_fg).child(match self.flow_sel {
+                                0 => Self::now_line(s.phase),
+                                1 => "studio, from one line: Codex’s #4 failed run 3 of its journey and went back to it. Lanes A and C keep going. You’re next at the release.",
+                                _ => "screenshot-line improved itself: the 300 ms delay applied on its own. Sending to a chat is new access, so it waits for you.",
+                            }))
                             .child(
                                 h_flex()
                                     .gap_2()
@@ -761,7 +833,11 @@ impl DoneRight {
                                     .child(Tag::info().small().child("#132 running 12 more runs")),
                             ),
                     )
-                    .child(div().flex_1().flex().items_center().justify_center().min_h_0().child(self.map(&s, pal, cx)))
+                    .child(div().flex_1().flex().items_center().justify_center().min_h_0().child(match self.flow_sel {
+                        0 => self.map(&s, pal, cx).into_any_element(),
+                        1 => playbook_map(pal, s.dash, s.pulse).into_any_element(),
+                        _ => extension_map(pal, s.dash, s.pulse).into_any_element(),
+                    }))
                     .child(
                         h_flex()
                             .justify_between()
@@ -770,79 +846,15 @@ impl DoneRight {
                             .py_3()
                             .border_t_1()
                             .border_color(pal.border)
-                            .child(self.stepper(&s, pal, cx)),
+                            .when(self.flow_sel == 0, |d| d.child(self.stepper(&s, pal, cx)))
+                            .when(self.flow_sel != 0, |d| d.child(div().text_xs().text_color(pal.muted_fg).child("Each station shows who does it: the agent, a check, or you. Click a flow above to switch."))),
                     ),
             )
-            .child(self.details(&s, pal, cx))
-    }
-
-    fn needs_you_view(&self, pal: &Pal, cx: &mut Context<Self>) -> impl IntoElement {
-        let waiting = self.waiting();
-        v_flex()
-            .flex_1()
-            .h_full()
-            .p_6()
-            .gap_3()
-            .child(div().text_lg().font_semibold().child(if waiting { "2 things need you" } else { "1 thing needs you" }))
-            .when(waiting, |d| {
-                d.child(card(pal, c_you(), "TASTE CALL · CLAUDE APP · #123", "Does the new checkout layout look right?", "Every check passes. Your past calls: 3 moves like this approved, 1 put back.")
-                    .child(h_flex().gap_2().child(Button::new("nl").primary().small().label("Looks right").on_click(cx.listener(|this, _, _, cx| { this.answer_taste("Looks right"); cx.notify(); }))).child(Button::new("nb").outline().small().label("Put it back").on_click(cx.listener(|this, _, _, cx| { this.answer_taste("Put it back"); cx.notify(); })))))
+            .child(match self.flow_sel {
+                0 => self.details(&s, pal, cx).into_any_element(),
+                1 => self.playbook_details(pal).into_any_element(),
+                _ => self.extension_details(pal, cx).into_any_element(),
             })
-            .child(card(pal, c_you(), "UNBLOCK · CODEX APP · #131", "Renew shopper-2’s sign-in", "The receipt journey needs it. It takes your 2FA, so only you can do it.").child(h_flex().gap_2().child(Button::new("open").primary().small().label("Open")).child(Button::new("later").outline().small().label("Later"))))
-            .child(div().text_xs().text_color(pal.muted_fg).child("Handled without you today: 1 false “done” sent back, 2 risky commands stopped."))
-    }
-
-    fn work_view(&self, pal: &Pal) -> impl IntoElement {
-        let rows = [
-            ("shop", "Claude app", "#123 Fix coupon rounding", "in the map", Tag::info()),
-            ("shop", "Codex app", "#131 Show tax on the receipt", "waits on your sign-in", Tag::danger()),
-            ("shop", "Claude app", "#132 Search keeps the price filter", "12 more runs", Tag::info()),
-            ("api", "Codex app", "#88 Rate-limit the export", "done · PASS", Tag::success()),
-            ("docs", "Claude app", "Update the setup guide", "quiet", Tag::secondary()),
-        ];
-        v_flex()
-            .flex_1()
-            .h_full()
-            .p_6()
-            .gap_2()
-            .child(div().text_lg().font_semibold().child("Every session, by repo"))
-            .children(rows.into_iter().map(|(repo, agent, what, state, tag)| {
-                h_flex()
-                    .gap_3()
-                    .py_2()
-                    .border_b_1()
-                    .border_color(pal.border)
-                    .child(div().w(px(56.)).text_xs().text_color(pal.muted_fg).child(repo))
-                    .child(div().w(px(96.)).text_sm().child(agent))
-                    .child(div().flex_1().text_sm().child(what))
-                    .child(tag.small().child(state))
-            }))
-    }
-
-    fn learned_view(&self, pal: &Pal, cx: &mut Context<Self>) -> impl IntoElement {
-        let item = |kind: &'static str, what: &'static str, scope: &'static str, from: &'static str| {
-            v_flex()
-                .gap_1()
-                .p_3()
-                .rounded(px(10.))
-                .border_1()
-                .border_color(pal.border)
-                .child(h_flex().gap_2().child(div().text_xs().font_semibold().text_color(pal.muted_fg).child(kind)).child(div().text_sm().child(what)))
-                .child(h_flex().gap_2().child(Tag::info().small().child(scope)).child(div().text_xs().text_color(pal.muted_fg).child(from)))
-        };
-        v_flex()
-            .flex_1()
-            .h_full()
-            .p_6()
-            .gap_3()
-            .child(div().text_lg().font_semibold().child("What it learned this week"))
-            .child(item("WIKI", "shop’s journeys use Stripe test mode, never a mock", "shop", "3 sessions · 4 quotes"))
-            .child(
-                item("SESSION START", "Agents in shop get the checkout page’s test ids", "shop", if self.rolled_back { "rolled back by you" } else { "2 sessions" })
-                    .when(!self.rolled_back, |d| d.child(h_flex().child(Button::new("rb").ghost().xsmall().icon(Lucide::Undo2).label("Roll back").on_click(cx.listener(|this, _, _, cx| { this.rolled_back = true; cx.notify(); }))))),
-            )
-            .child(item("STEP SPEC", "Research steps cite the vendor’s docs before blog posts", "this session", "1 studio session · widens after it helps again"))
-            .child(div().text_xs().text_color(pal.muted_fg).child("Learning never changes your checks, your decisions or DoneRight’s four rules."))
     }
 
     // ---------- first launch ----------
@@ -1002,9 +1014,13 @@ impl Render for DoneRight {
             };
             let main = match self.view {
                 View::Flow => self.flow_view(&pal, cx).into_any_element(),
-                View::NeedsYou => self.needs_you_view(&pal, cx).into_any_element(),
-                View::Work => self.work_view(&pal).into_any_element(),
-                View::Learned => self.learned_view(&pal, cx).into_any_element(),
+                View::NeedsYou => self.needs_full(&pal, cx).into_any_element(),
+                View::Sessions => self.sessions_view(&pal, cx).into_any_element(),
+                View::Map => self.project_map_view(&pal, cx).into_any_element(),
+                View::Add => self.add_view(&pal, cx).into_any_element(),
+                View::Learned => self.learned_full(&pal, cx).into_any_element(),
+                View::Wiki => self.wiki_view(&pal).into_any_element(),
+                View::Numbers => self.numbers_view(&pal).into_any_element(),
             };
             h_flex()
                 .flex_1()
@@ -1017,12 +1033,23 @@ impl Render for DoneRight {
                             SidebarGroup::new("Work").child(SidebarMenu::new().children([
                                 nav("Flow", Lucide::Workflow, View::Flow, self, cx),
                                 nav("Needs you", Lucide::Inbox, View::NeedsYou, self, cx).suffix(move |_, _| Tag::danger().small().rounded_full().child(format!("{n}"))),
-                                nav("Sessions", Lucide::LayoutDashboard, View::Work, self, cx),
+                                nav("Sessions", Lucide::LayoutDashboard, View::Sessions, self, cx),
+                                nav("Map", Lucide::Map, View::Map, self, cx),
+                                nav("Numbers", Lucide::Gauge, View::Numbers, self, cx),
+                            ])),
+                        )
+                        .child(
+                            SidebarGroup::new("Make it yours").child(SidebarMenu::new().children([
+                                nav("Add anything", Lucide::Sparkles, View::Add, self, cx),
                                 nav("Learned", Lucide::Brain, View::Learned, self, cx),
+                                nav("Wiki", Lucide::BookOpen, View::Wiki, self, cx),
                             ])),
                         )
                         .footer(SidebarFooter::new().child(
                             div()
+                                .id("tell")
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| { this.view = View::Add; cx.notify(); }))
                                 .w_full()
                                 .px_2()
                                 .py_1p5()
@@ -1035,7 +1062,7 @@ impl Render for DoneRight {
                                 .child("Tell DoneRight…"),
                         )),
                 )
-                .child(main)
+                .child(if self.view == View::Flow { main } else { div().id("view").flex_1().h_full().min_w_0().overflow_y_scroll().child(main).into_any_element() })
                 .into_any_element()
         };
         v_flex().size_full().bg(pal.bg).text_color(pal.fg).child(title).child(body)
@@ -1049,6 +1076,6 @@ fn main() {
             window_bounds: Some(WindowBounds::centered(size(px(1440.), px(860.)), cx)),
             ..TitleBar::window_options()
         };
-        gpui_kit::open_window(options, cx, |_, cx| cx.new(DoneRight::new)).expect("failed to open the window");
+        gpui_kit::open_window(options, cx, |window, cx| cx.new(|cx| DoneRight::new(window, cx))).expect("failed to open the window");
     });
 }
