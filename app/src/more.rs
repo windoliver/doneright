@@ -173,7 +173,7 @@ pub(crate) fn playbook_map(pal: &Pal, dash: f32, pulse: f32) -> Div {
         lines.push((lane(ly), if st == St::Ok { St::Ok } else { St::Run }, st != St::Ok));
     }
     let mut stations = vec![
-        Stn { x: 52., y, r: 8., st: St::Ok, name: "Research", sub: "14 sources resolve", person: false, hub: false, label_above: false },
+        Stn { x: 52., y, r: 8., st: St::Ok, name: "Research", sub: "14 sources", person: false, hub: false, label_above: false },
         Stn { x: 142., y, r: 12., st: St::Ok, name: "Plan", sub: "you approved", person: true, hub: false, label_above: false },
         Stn { x: 492., y, r: HUB_R, st: St::Run, name: "prove", sub: "", person: false, hub: true, label_above: false },
         Stn { x: 630., y, r: 8., st: St::Idle, name: "Merge", sub: "in a safe order", person: false, hub: false, label_above: true },
@@ -199,8 +199,10 @@ pub(crate) fn playbook_map(pal: &Pal, dash: f32, pulse: f32) -> Div {
     )
 }
 
-// ---------- an extension build: your words, your agent, checks, you, your Mac, and back ----------
-pub(crate) fn extension_map(pal: &Pal, dash: f32, pulse: f32) -> Div {
+// ---------- an extension build: words in, your agent, checks, you, your Mac, and back ----------
+// `suggested` draws the same line for something DoneRight proposed from how you work:
+// the words come from a pattern it noticed, and the build happens in a copy.
+pub(crate) fn extension_map(pal: &Pal, dash: f32, pulse: f32, suggested: Option<Proposal>) -> Div {
     let y = 120.;
     let (ask, agent, checks, you, mac) = (56., 196., 372., 548., 700.);
     let arc = cubic((checks, y - HUB_R), (checks, y - 100.), (agent, y - 100.), (agent, y - 9.), 32);
@@ -209,28 +211,61 @@ pub(crate) fn extension_map(pal: &Pal, dash: f32, pulse: f32) -> Div {
         v.extend([(130., y + 150.), (130., y)]);
         v
     };
+    let Some(p) = suggested else {
+        return mini_map(
+            Mini {
+                w: 860.,
+                h: 300.,
+                stations: vec![
+                    Stn { x: ask, y, r: 8., st: St::Ok, name: "You asked", sub: "in the app", person: false, hub: false, label_above: false },
+                    Stn { x: agent, y, r: 9., st: St::Ok, name: "Your agent", sub: "on your plan", person: false, hub: false, label_above: false },
+                    Stn { x: checks, y, r: HUB_R, st: St::Ok, name: "checks", sub: "", person: false, hub: true, label_above: false },
+                    Stn { x: you, y, r: 13., st: St::You, name: "You", sub: "1 change waits", person: true, hub: false, label_above: false },
+                    Stn { x: mac, y, r: 9., st: St::Ok, name: "On your Mac", sub: "screenshot-line 0.1.1", person: false, hub: false, label_above: true },
+                ],
+                lines: vec![
+                    (vec![(ask, y), (agent, y)], St::Ok, false),
+                    (vec![(agent, y), (checks - HUB_R, y)], St::Ok, false),
+                    (vec![(checks + HUB_R, y), (you, y)], St::Ok, false),
+                    (vec![(you, y), (mac, y)], St::Ok, false),
+                    (arc, St::Back, false),
+                    (back_loop, St::Run, true),
+                ],
+                spokes: Some((checks, y, vec![("conformance", St::Ok), ("its tests", St::Ok), ("render", St::Ok), ("replay ×61", St::Ok), ("access", St::You)], 135., 45.)),
+                pills: vec![((checks + agent) / 2., y - 76., "passed on round 2", c_ok()), (400., y + 150., "improves with use · replayed on your past uses", c_run())],
+                tokens: vec![(you, y, "0.2", c_you())],
+            },
+            pal,
+            dash,
+            pulse,
+        );
+    };
+    let (you_st, you_sub, home_st, home_sub) = match p {
+        Proposal::Pending => (St::You, "one tap", St::Idle, "a gadget, when you say"),
+        Proposal::Accepted => (St::Ok, "you added it", St::Ok, "Deploys gadget"),
+        Proposal::Dismissed => (St::Ok, "you said not now", St::Idle, "not added"),
+    };
     mini_map(
         Mini {
             w: 860.,
             h: 300.,
             stations: vec![
-                Stn { x: ask, y, r: 8., st: St::Ok, name: "You asked", sub: "in the app", person: false, hub: false, label_above: false },
-                Stn { x: agent, y, r: 9., st: St::Ok, name: "Your agent", sub: "on your plan", person: false, hub: false, label_above: false },
+                Stn { x: ask, y, r: 8., st: St::Ok, name: "Noticed", sub: "“did it deploy?” ×9", person: false, hub: false, label_above: false },
+                Stn { x: agent, y, r: 9., st: St::Ok, name: "Your agent", sub: "builds it in a copy", person: false, hub: false, label_above: false },
                 Stn { x: checks, y, r: HUB_R, st: St::Ok, name: "checks", sub: "", person: false, hub: true, label_above: false },
-                Stn { x: you, y, r: 13., st: St::You, name: "You", sub: "1 change waits", person: true, hub: false, label_above: false },
-                Stn { x: mac, y, r: 9., st: St::Ok, name: "On your Mac", sub: "screenshot-line 0.1.1", person: false, hub: false, label_above: true },
+                Stn { x: you, y, r: 13., st: you_st, name: "You", sub: you_sub, person: true, hub: false, label_above: false },
+                Stn { x: mac, y, r: 9., st: home_st, name: "Your home", sub: home_sub, person: false, hub: false, label_above: true },
             ],
             lines: vec![
                 (vec![(ask, y), (agent, y)], St::Ok, false),
                 (vec![(agent, y), (checks - HUB_R, y)], St::Ok, false),
                 (vec![(checks + HUB_R, y), (you, y)], St::Ok, false),
-                (vec![(you, y), (mac, y)], St::Ok, false),
-                (arc, St::Back, false),
-                (back_loop, St::Run, true),
+                (vec![(you, y), (mac, y)], if p == Proposal::Accepted { St::Ok } else { St::Idle }, false),
+                (back_loop, if p == Proposal::Accepted { St::Run } else { St::Idle }, true),
             ],
-            spokes: Some((checks, y, vec![("conformance", St::Ok), ("its tests", St::Ok), ("render", St::Ok), ("replay ×61", St::Ok), ("access", St::You)], 135., 30.)),
-            pills: vec![((checks + agent) / 2., y - 76., "passed on round 2", c_ok()), (400., y + 150., "improves with use · replayed on your past uses", c_run())],
-            tokens: vec![(you, y, "0.2", c_you())],
+            spokes: Some((checks, y, vec![("conformance", St::Ok), ("its tests", St::Ok), ("render", St::Ok), ("dry run", St::Ok), ("access", St::Ok)], 135., 30.)),
+            pills: vec![((checks + agent) / 2., y - 76., "passed first time", c_ok()), (400., y + 150., "improves with use, like anything you add", if p == Proposal::Accepted { c_run() } else { pal.muted_fg })],
+            tokens: if p == Proposal::Pending { vec![(you, y, "new", c_you())] } else { vec![] },
         },
         pal,
         dash,
@@ -335,9 +370,12 @@ impl DoneRight {
                                 .outline()
                                 .xsmall()
                                 .label(if paused { "Resume" } else { "Pause" })
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    if !this.paused.remove(id) {
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    if this.paused.remove(id) {
+                                        toast(window, cx, "Resumed", "It carries on from where it stopped.");
+                                    } else {
                                         this.paused.insert(id);
+                                        toast(window, cx, "Paused", "Its next tool call waits until you resume it.");
                                     }
                                     cx.notify();
                                 })),
@@ -376,7 +414,6 @@ impl DoneRight {
         ];
         let docs = [Part { name: "guides", path: "docs/", sessions: &["Claude · guide"], issues: &[], ev: &[("links resolve", St::Ok)] }];
         let parts: &[Part] = match self.map_repo { 0 => &shop, 1 => &api, _ => &docs };
-        let tabs = ["shop", "api", "docs"];
         v_flex()
             .flex_1()
             .h_full()
@@ -387,9 +424,19 @@ impl DoneRight {
                     .justify_between()
                     .items_center()
                     .child(div().text_lg().font_semibold().child("Map: which part is moving, and what’s proven"))
-                    .child(h_flex().gap_1().children(tabs.iter().enumerate().map(|(i, t)| {
-                        Button::new(("repo", i)).ghost().small().label(*t).selected(self.map_repo == i).on_click(cx.listener(move |this, _, _, cx| { this.map_repo = i; cx.notify(); }))
-                    }))),
+                    .child(
+                        TabBar::new("repos")
+                            .segmented()
+                            .small()
+                            .selected_index(self.map_repo)
+                            .on_click(cx.listener(|this, ix: &usize, _, cx| {
+                                this.map_repo = *ix;
+                                cx.notify();
+                            }))
+                            .child(Tab::new().label("shop"))
+                            .child(Tab::new().label("api"))
+                            .child(Tab::new().label("docs")),
+                    ),
             )
             .child(
                 h_flex().flex_wrap().items_start().gap_3().children(parts.iter().map(|p| {
@@ -436,39 +483,120 @@ impl DoneRight {
                     }))),
             )
             .children(builds.into_iter().enumerate().map(|(i, b)| {
-                let stage = if b.t < 3.0 { 0 } else if b.t < 6.0 { 1 } else { 2 };
+                let stage = if b.installed { 3 } else if b.t < 3.0 { 0 } else if b.t < 6.0 { 1 } else { 2 };
                 box_(pal)
-                    .child(h_flex().justify_between().child(div().font_semibold().child(format!("“{}”", b.words))).child(match (stage, b.installed) {
-                        (_, true) => Tag::success().small().child("installed"),
-                        (0, _) => Tag::info().small().child("your agent is building it"),
-                        (1, _) => Tag::info().small().child("checking"),
-                        _ => Tag::danger().small().child("ready for you"),
+                    .child(h_flex().justify_between().child(div().font_semibold().child(format!("“{}”", b.words))).child(match stage {
+                        3 => Tag::success().small().child("added"),
+                        2 => Tag::danger().small().child("ready for you"),
+                        _ => Tag::info().small().child("on your plan"),
                     }))
-                    .child(div().text_xs().text_color(pal.muted_fg).child(match stage {
-                        0 => "Claude Code, headless, on your Max plan · writing the manifest, the panel and its tests",
-                        1 => "conformance · its own tests · a render · a dry run on your data · an access check",
-                        _ => "All checks passed. It can read only what it declared, and it can’t send anything.",
-                    }))
-                    .when(stage < 2, |d| d.child(Progress::new(("bp", i)).value(((b.t % 3.0) / 3.0 * 100.).min(100.))))
-                    .when(stage == 2 && !b.installed, |d| {
-                        d.child(h_flex().gap_2().child(Button::new(("install", i)).primary().small().label("Install").on_click(cx.listener(move |this, _, _, cx| {
-                            if let Some(b) = this.builds.get_mut(i) { b.installed = true; }
-                            cx.notify();
-                        }))).child(Button::new(("skip", i)).outline().small().label("Not now")))
+                    .child(
+                        Stepper::new(("bs", i))
+                            .small()
+                            .selected_index(stage)
+                            .items(["Your agent builds it", "Checks", "You", "In the app"].into_iter().map(|t| StepperItem::new().child(t))),
+                    )
+                    .child(match stage {
+                        0 => ShimmerText::new("Claude Code, headless, on your Max plan: writing the panel script, its grant and its tests").id(("sh", i)).text_xs().into_any_element(),
+                        1 => ShimmerText::new("conformance · its own tests · a render · a dry run on your data · an access check").id(("sh", i)).text_xs().into_any_element(),
+                        2 => div().text_xs().text_color(pal.muted_fg).child("All checks passed. It can read only what it declared, and it can’t send anything.").into_any_element(),
+                        _ => div().text_xs().text_color(pal.muted_fg).child("In your sidebar under Added by you, loaded into the app with no rebuild.").into_any_element(),
+                    })
+                    .when(stage == 2, |d| {
+                        d.child(
+                            h_flex()
+                                .gap_2()
+                                .child(Button::new(("install", i)).primary().small().label("Add it to the app").on_click(cx.listener(move |this, _, window, cx| this.install_build(i, window, cx))))
+                                .child(Button::new(("skip", i)).outline().small().label("Not now")),
+                        )
+                    })
+                    .when_some(b.added.filter(|_| stage == 3), |d, idx| {
+                        d.child(h_flex().child(Button::new(("show", i)).outline().small().icon(Lucide::ArrowRight).label("Show me").on_click(cx.listener(move |this, _, _, cx| { this.view = View::Ext(idx); cx.notify(); }))))
                     })
             }))
-            .child(section("INSTALLED · 3", pal))
+            .when(self.proposal == Proposal::Pending, |d| {
+                d.child(section("SUGGESTED FROM HOW YOU WORK", pal)).child(self.proposal_card(pal, cx))
+            })
+            .child(section("IN THE APP NOW · BUILT FROM ONE SENTENCE EACH", pal))
             .child(
-                h_flex().gap_3().flex_wrap().items_start().children([
-                    ("screenshot-line 0.1.1", "a line under the menu bar for your screenshots", "the 300 ms delay applied on its own"),
-                    ("cursor-buddy 0.1.0", "sees your screen only while you hold ⌥Space; asks before saving", "installed Wednesday"),
-                    ("receipt-mail-watch 0.3.1", "reads the receipts mailbox; cards on your line", "applied on its own Oct 2"),
-                ].into_iter().map(|(n, can, last)| {
-                    v_flex().w(px(300.)).gap_1().p_3().rounded(px(12.)).border_1().border_color(pal.border).child(div().text_sm().font_semibold().child(n)).child(div().text_xs().text_color(pal.muted_fg).child(can)).child(div().text_xs().text_color(pal.muted_fg).child(last))
+                h_flex().gap_3().flex_wrap().items_start().children(self.added.iter().enumerate().filter(|(_, a)| !a.removed).map(|(i, a)| {
+                    v_flex()
+                        .w(px(300.))
+                        .gap_1()
+                        .p_3()
+                        .rounded(px(12.))
+                        .border_1()
+                        .border_color(pal.border)
+                        .child(h_flex().gap_1p5().items_center().child(div().text_sm().font_semibold().child(format!("{} {}", a.key, a.version))).when(a.suggested, |d| d.child(Tag::secondary().small().child("suggested"))))
+                        .child(div().text_xs().text_color(pal.muted_fg).child(format!("“{}”", a.words)))
+                        .child(div().text_xs().child(format!("In: {}", a.places())))
+                        .child(
+                            h_flex()
+                                .gap_1()
+                                .pt_1()
+                                .child(Button::new(("about", i)).ghost().xsmall().icon(Lucide::Info).label("Where it came from").on_click(cx.listener(move |this, _, window, cx| this.open_about(i, window, cx))))
+                                .when(a.nav.is_some(), |d| d.child(Button::new(("go", i)).ghost().xsmall().icon(Lucide::ArrowRight).label("Open").on_click(cx.listener(move |this, _, _, cx| { this.view = View::Ext(i); cx.notify(); })))),
+                        )
                 })),
             )
             .child(section("TRY SIDE BY SIDE", pal))
             .child(self.memory_trial(pal, cx))
+    }
+
+    /// The suggestion as a card, where it waits until you look: Needs you and Add anything.
+    pub(crate) fn proposal_card(&self, pal: &Pal, cx: &mut Context<Self>) -> Div {
+        box_(pal)
+            .max_w(px(620.))
+            .border_dashed()
+            .border_color(c_added())
+            .child(div().text_xs().font_semibold().text_color(c_added()).child("SUGGESTED GADGET · NO RUSH"))
+            .child(div().font_semibold().child("Add a deploy gadget to your home?"))
+            .child(div().text_sm().text_color(pal.muted_fg).child("You asked “did it deploy?” 9 times this week, in 4 sessions. Your agent built this in a copy on your plan (1% of one window), and its checks passed. It reads deploy status with your Vercel and Fly logins, read-only."))
+            .child(
+                h_flex()
+                    .gap_3()
+                    .items_center()
+                    .child(v_flex().w(px(206.)).p_3().gap_1p5().rounded(px(12.)).border_1().border_color(pal.border).bg(pal.bg).child(h_flex().gap_1p5().items_center().child(Icon::from(Lucide::Rocket).size_3p5().text_color(pal.muted_fg)).child(div().text_xs().font_semibold().text_color(pal.muted_fg).child("Deploys · preview"))).child(deploy_preview(pal)))
+                    .child(
+                        v_flex()
+                            .gap_2()
+                            .child(Button::new("pc-add").primary().small().label("Add it").on_click(cx.listener(|this, _, window, cx| this.accept_proposal(window, cx))))
+                            .child(Button::new("pc-no").outline().small().label("Not now").on_click(cx.listener(|this, _, window, cx| this.dismiss_proposal(window, cx)))),
+                    ),
+            )
+    }
+
+    pub(crate) fn proposal_details(&self, pal: &Pal, cx: &mut Context<Self>) -> impl IntoElement {
+        v_flex()
+            .w(px(320.))
+            .h_full()
+            .flex_shrink_0()
+            .border_l_1()
+            .border_color(pal.border)
+            .bg(pal.card)
+            .p_4()
+            .gap_2()
+            .child(h_flex().gap_2().items_center().child(Tag::secondary().small().child("suggested")).child(div().text_sm().font_semibold().child("deploy-status 0.1.0")))
+            .child(div().text_xs().text_color(pal.muted_fg).child("Nobody asked for this one. DoneRight noticed a pattern and asked your agent to build it, in a copy, on your plan."))
+            .child(section("WHY", pal))
+            .child(div().text_xs().child("You asked “did it deploy?” 9 times this week, in 4 sessions, and opened the Vercel dashboard 6 times."))
+            .child(section("PREVIEW, LIVE FROM THE COPY", pal))
+            .child(v_flex().p_3().rounded(px(12.)).border_1().border_dashed().border_color(c_added()).bg(pal.bg).child(deploy_preview(pal)))
+            .child(section("IT CAN", pal))
+            .child(div().text_xs().child("✓ read deploy status with your Vercel and Fly logins, read-only"))
+            .child(section("IT CAN’T", pal))
+            .children(["deploy, roll back or change anything", "use any other login"].into_iter().map(|t| div().text_xs().text_color(pal.muted_fg).child(format!("✗ {t}"))))
+            .child(div().h(px(4.)))
+            .child(match self.proposal {
+                Proposal::Pending => h_flex()
+                    .gap_2()
+                    .child(Button::new("pd-add").primary().small().label("Add it").on_click(cx.listener(|this, _, window, cx| this.accept_proposal(window, cx))))
+                    .child(Button::new("pd-no").outline().small().label("Not now").on_click(cx.listener(|this, _, window, cx| this.dismiss_proposal(window, cx))))
+                    .into_any_element(),
+                Proposal::Accepted => div().text_xs().text_color(c_ok()).child("Added. It’s on your home screen.").into_any_element(),
+                Proposal::Dismissed => div().text_xs().text_color(pal.muted_fg).child("You said not now.").into_any_element(),
+            })
+            .child(div().text_xs().text_color(pal.muted_fg).child("Suggestions never count as asks. They wait here and in Needs you until you look."))
     }
 
     pub(crate) fn memory_trial(&self, pal: &Pal, cx: &mut Context<Self>) -> Div {
@@ -624,18 +752,38 @@ impl DoneRight {
                     ),
             )
             .child(
-                box_(pal)
-                    .w(px(856.))
-                    .child(div().font_semibold().child("Infra"))
-                    .child(h_flex().gap_2().flex_wrap().children([
-                        ("web · Vercel", St::Ok, "$20/mo"),
-                        ("api · Fly", St::Ok, "$31/mo"),
-                        ("db · Postgres", St::Ok, "$25/mo"),
-                        ("staging-old · stopped by your guard", St::Back, "saves about $45/mo"),
-                        ("Stripe · test mode", St::Ok, "$0"),
-                    ].into_iter().map(|(n, s, c)| {
-                        h_flex().gap_2().items_center().px_3().py_2().rounded(px(10.)).border_1().border_color(pal.border).child(div().size(px(8.)).rounded_full().bg(pal.st(s))).child(div().text_sm().child(n)).child(div().text_xs().text_color(pal.muted_fg).child(c))
-                    }))),
+                h_flex()
+                    .gap_3()
+                    .items_start()
+                    .child(
+                        box_(pal)
+                            .w(px(420.))
+                            .child(h_flex().justify_between().child(div().font_semibold().child("Sent back before it reached you")).child(div().text_xs().text_color(pal.muted_fg).child("6 this week")))
+                            .child(
+                                div().h(px(150.)).w_full().child(
+                                    BarChart::new(vec![("Mon", 1.), ("Tue", 0.), ("Wed", 2.), ("Thu", 1.), ("Fri", 0.), ("Sat", 1.), ("Sun", 1.)])
+                                        .band(|d: &(&'static str, f64)| d.0)
+                                        .value(|d| d.1)
+                                        .fill(|_, _, _, _| c_back())
+                                        .tooltip_value(|_, v| SharedString::from(format!("{v} sent back"))),
+                                ),
+                            )
+                            .child(div().text_xs().text_color(pal.muted_fg).child("Each one failed a check and went back to its agent, so you never saw it.")),
+                    )
+                    .child(
+                        box_(pal)
+                            .w(px(420.))
+                            .child(div().font_semibold().child("Infra"))
+                            .children([
+                                ("web · Vercel", St::Ok, "$20/mo"),
+                                ("api · Fly", St::Ok, "$31/mo"),
+                                ("db · Postgres", St::Ok, "$25/mo"),
+                                ("staging-old · stopped by your guard", St::Back, "saves about $45/mo"),
+                                ("Stripe · test mode", St::Ok, "$0"),
+                            ].into_iter().map(|(n, s, c)| {
+                                h_flex().gap_2().items_center().py_1().border_b_1().border_color(pal.border.opacity(0.6)).child(div().size(px(8.)).rounded_full().bg(pal.st(s))).child(div().flex_1().text_sm().child(n)).child(div().text_xs().text_color(pal.muted_fg).child(c))
+                            })),
+                    ),
             )
     }
 
@@ -658,7 +806,7 @@ impl DoneRight {
             .when(waiting, |d| {
                 d.child(card(pal, c_you(), "TASTE CALL · CLAUDE APP · #123", "Does the new checkout layout look right?", "Every check passes. Your past calls: 3 moves like this approved, 1 put back.")
                     .child(h_flex().gap_2().child(shot("Before", false, pal)).child(shot("After", true, pal)).max_w(px(360.)))
-                    .child(h_flex().gap_2().child(Button::new("nl").primary().small().label("Looks right").on_click(cx.listener(|this, _, _, cx| { this.answer_taste("Looks right"); cx.notify(); }))).child(Button::new("nb").outline().small().label("Put it back").on_click(cx.listener(|this, _, _, cx| { this.answer_taste("Put it back"); cx.notify(); })))))
+                    .child(h_flex().gap_2().child(Button::new("nl").primary().small().label("Looks right").on_click(cx.listener(|this, _, window, cx| this.answer_taste("Looks right", window, cx)))).child(Button::new("nb").outline().small().label("Put it back").on_click(cx.listener(|this, _, window, cx| this.answer_taste("Put it back", window, cx))))))
             })
             .when(self.memory.is_none(), |d| d.child(self.memory_trial(pal, cx).max_w(px(620.))))
             .children(open.into_iter().map(|(key, kind, title, body, opts)| {
@@ -667,10 +815,15 @@ impl DoneRight {
                 card(pal, c_you(), kind, title, body).child(
                     h_flex()
                         .gap_2()
-                        .child(Button::new(SharedString::from(format!("a-{k}"))).primary().small().label(a).on_click(cx.listener(move |this, _, _, cx| { this.answers.insert(k, a); cx.notify(); })))
+                        .child(Button::new(SharedString::from(format!("a-{k}"))).primary().small().label(a).on_click(cx.listener(move |this, _, window, cx| {
+                            this.answers.insert(k, a);
+                            toast(window, cx, "Done", format!("“{a}.” The agent that asked hears it at its next stop."));
+                            cx.notify();
+                        })))
                         .child(Button::new(SharedString::from(format!("b-{k}"))).outline().small().label(b).on_click(cx.listener(move |this, _, _, cx| { this.answers.insert(k, b); cx.notify(); }))),
                 )
             }))
+            .when(self.proposal == Proposal::Pending, |d| d.child(section("SUGGESTED · NOT COUNTED AS AN ASK", pal)).child(self.proposal_card(pal, cx)))
             .when(!self.answers.is_empty(), |d| {
                 d.child(section("ANSWERED TODAY", pal)).children(self.answers.iter().map(|(k, v)| {
                     h_flex().gap_3().child(div().text_sm().child(match *k { "signin" => "Renew shopper-2’s sign-in", "pay" => "Run the live payment workflow", _ => "Let screenshot-line send to a chat" })).child(div().text_xs().text_color(pal.muted_fg).child(*v))

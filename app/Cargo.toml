@@ -14,3 +14,8 @@ debug = false
 
 [profile.dev.package."*"]
 opt-level = 2
+
+[features]
+# Headless snapshots for the screenshot page: renders each state with GPUI's Metal
+# test renderer, so no display (or unlocked screen) is needed. Not part of the app.
+snap = ["gpui-kit/test-support"]

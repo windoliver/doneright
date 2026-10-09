@@ -6,17 +6,30 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
+mod ext;
 mod more;
+#[cfg(feature = "snap")]
+mod snap;
+use ext::*;
 use more::*;
 
 use gpui_kit::assets::IconName as Lucide;
 use gpui_kit::component::{
-    ActiveTheme, Icon, Selectable as _, Sizable as _, StyledExt as _, Theme, ThemeMode, TitleBar, h_flex, v_flex,
+    ActiveTheme, Disableable as _, Icon, Selectable as _, Sizable as _, StyledExt as _, Theme, ThemeMode, TitleBar, h_flex, v_flex,
     button::{Button, ButtonVariants as _},
+    command::CommandState,
+    description_list::DescriptionList,
     input::{Input, InputEvent, InputState},
+    kbd::Kbd,
+    chart::BarChart,
     progress::Progress,
+    shimmer::ShimmerText,
     sidebar::{Sidebar, SidebarFooter, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
+    stepper::{Stepper, StepperItem},
+    switch::Switch,
+    tab::{Tab, TabBar},
     tag::Tag,
+    tooltip::Tooltip,
 };
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
@@ -34,7 +47,9 @@ enum St { #[default] Idle, Run, Ok, Back, You }
 enum Screen { Welcome, Setup, App }
 
 #[derive(Clone, Copy, PartialEq)]
-enum View { Flow, NeedsYou, Sessions, Map, Add, Learned, Wiki, Numbers }
+enum View { Flow, NeedsYou, Sessions, Map, Add, Learned, Wiki, Numbers, Ext(usize) }
+
+actions!(doneright, [OpenPalette]);
 
 // ---------- the map: stations on one line, the checks as spokes on a hub ----------
 const W: f32 = 860.;
@@ -158,6 +173,16 @@ struct DoneRight {
     memory: Option<&'static str>,
     rolled_back_items: HashSet<&'static str>,
     rolled_since: bool,
+    // what your agents added to the app, and the one suggestion waiting
+    added: Vec<Added>,
+    show_added: bool,
+    proposal: Proposal,
+    proposal_toasted: bool,
+    app_t: f32,
+    detail_tab: usize,
+    palette: Entity<CommandState>,
+    focus: FocusHandle,
+    startup: Vec<String>,
     _subs: Vec<Subscription>,
 }
 
@@ -166,6 +191,7 @@ struct Build {
     words: String,
     t: f32,
     installed: bool,
+    added: Option<usize>,
 }
 
 impl DoneRight {
@@ -176,16 +202,18 @@ impl DoneRight {
                 this.submit(window, cx);
             }
         });
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             loop {
                 cx.background_executor().timer(Duration::from_millis(33)).await;
-                if this.update(cx, |this, cx| this.tick(cx)).is_err() {
+                if this.upgrade().is_none() {
                     break;
                 }
+                let _ = this.update_in(cx, |this, window, cx| this.tick(window, cx));
             }
         })
         .detach();
-        let start = std::env::var("DR_START").unwrap_or_default();
+        let env = |k: &str| std::env::var(k).unwrap_or_default();
+        let start = env("DR_START");
         let (screen, view) = match start.as_str() {
             "setup" => (Screen::Setup, View::Flow),
             "flow" => (Screen::App, View::Flow),
@@ -196,9 +224,42 @@ impl DoneRight {
             "wiki" => (Screen::App, View::Wiki),
             "numbers" => (Screen::App, View::Numbers),
             "learned" => (Screen::App, View::Learned),
+            s if s.starts_with("ext:") => (Screen::App, View::Ext(s[4..].parse().unwrap_or(0))),
             _ => (Screen::Welcome, View::Flow),
         };
         let t0 = std::env::var("DR_T").ok().and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.);
+        let mut added = seed_added();
+        let proposal = match env("DR_PROPOSAL").as_str() {
+            "accepted" => {
+                added.push(Added { age: 1e6, ..deploy_gadget() });
+                Proposal::Accepted
+            }
+            "dismissed" => Proposal::Dismissed,
+            _ => Proposal::Pending,
+        };
+        let mut builds = vec![];
+        match env("DR_BUILD").as_str() {
+            "" => {}
+            "installed" => {
+                let words = "Watch the receipts inbox for bounces";
+                added.push(Added { age: 1e6, ..added_from_build(words) });
+                builds.push(Build { words: words.into(), t: 7., installed: true, added: Some(added.len() - 1) });
+            }
+            _ => builds.push(Build { words: "Watch the receipts inbox for bounces".into(), t: 6.5, installed: false, added: None }),
+        }
+        let mut startup = vec![];
+        if !env("DR_TOAST").is_empty() {
+            startup.push(format!("toast:{}", env("DR_TOAST")));
+        }
+        if !env("DR_SHEET").is_empty() {
+            startup.push(format!("sheet:{}", env("DR_SHEET")));
+        }
+        if std::env::var("DR_PALETTE").is_ok() {
+            startup.push(format!("palette:{}", env("DR_PALETTE")));
+        }
+        let palette = cx.new(|cx| CommandState::new(window, cx));
+        let focus = cx.focus_handle();
+        focus.focus(window, cx);
         Self {
             screen,
             view,
@@ -216,18 +277,45 @@ impl DoneRight {
             map_repo: 0,
             answers: HashMap::new(),
             input,
-            builds: if std::env::var("DR_BUILD").is_ok() { vec![Build { words: "Watch the receipts inbox for bounces".into(), t: 6.5, installed: false }] } else { vec![] },
+            builds,
             memory: None,
             rolled_back_items: HashSet::new(),
             rolled_since: false,
+            added,
+            show_added: std::env::var("DR_ADDED").is_ok(),
+            proposal,
+            proposal_toasted: std::env::var("DR_QUIET").is_ok(),
+            app_t: 0.,
+            detail_tab: env("DR_DTAB").parse().unwrap_or(0),
+            palette,
+            focus,
+            startup,
             _subs: vec![sub],
         }
     }
 
-    fn tick(&mut self, cx: &mut Context<Self>) {
+    fn tick(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let now = Instant::now();
         let dt = (now - self.last).as_secs_f32().min(0.1);
         self.last = now;
+        for job in std::mem::take(&mut self.startup) {
+            let (kind, arg) = job.split_once(':').unwrap_or((job.as_str(), ""));
+            match (kind, arg) {
+                ("toast", "propose") => self.propose_toast(window, cx),
+                ("toast", "accepted") => toast(window, cx, "Added to your home", "Deploys is on your home screen. Claude Code built it on your Max plan: 1% of one window."),
+                ("toast", "installed") => toast(window, cx, "Added to your sidebar", "“Bounces” is under Added by you. Built in one shot from your words; remove it any time."),
+                ("toast", "answer") => toast(window, cx, "Sent to the Claude app", "“Looks right.” It carries on with #123."),
+                ("sheet", i) => {
+                    let i = i.parse().unwrap_or(0).min(self.added.len() - 1);
+                    self.open_about(i, window, cx);
+                }
+                ("palette", q) => self.open_palette(Some(q), window, cx),
+                _ => {}
+            }
+        }
+        for a in self.added.iter_mut() {
+            a.age += dt;
+        }
         match self.screen {
             Screen::Welcome => return,
             Screen::Setup => {
@@ -238,6 +326,11 @@ impl DoneRight {
                 }
             }
             Screen::App => {
+                self.app_t += dt;
+                if self.app_t > 12. && self.proposal == Proposal::Pending && !self.proposal_toasted {
+                    self.proposal_toasted = true;
+                    self.propose_toast(window, cx);
+                }
                 for b in self.builds.iter_mut() {
                     b.t = (b.t + dt).min(7.);
                 }
@@ -264,7 +357,7 @@ impl DoneRight {
     }
 
     fn start_build(&mut self, words: String) {
-        self.builds.insert(0, Build { words, t: 0., installed: false });
+        self.builds.insert(0, Build { words, t: 0., installed: false, added: None });
         self.view = View::Add;
     }
 
@@ -289,11 +382,13 @@ impl DoneRight {
         self.playing = true;
     }
 
-    fn answer_taste(&mut self, a: &'static str) {
+    fn answer_taste(&mut self, a: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         if self.answered_at.is_none() {
             self.answered_at = Some(self.t);
             self.answer = Some(a);
+            toast(window, cx, "Sent to the Claude app", format!("“{a}.” It carries on with #123."));
         }
+        cx.notify();
     }
 
     fn waiting(&self) -> bool { phase_at(self.t, self.answered_at).0 == Phase::Waiting }
@@ -541,7 +636,7 @@ impl DoneRight {
         let snap = s.clone();
         let p = *pal;
         let st = s.stations;
-        let sub_you = match s.phase { Phase::Waiting => "waiting on you", Phase::ToPr | Phase::Pr | Phase::ToMerged | Phase::Merged => "looks right", _ => "taste and approvals" };
+        let sub_you = match s.phase { Phase::Waiting => "waiting on you", Phase::ToPr | Phase::Pr | Phase::ToMerged | Phase::Merged => "looks right", _ => "taste calls" };
         let you_color = if s.phase == Phase::Waiting { c_you() } else { pal.muted_fg };
         let mut m = div()
             .relative()
@@ -648,48 +743,29 @@ impl DoneRight {
         .on_mouse_down(MouseButton::Left, cx.listener(|_, _, _, _| {}))
     }
 
-    fn stepper(&self, s: &Snap, pal: &Pal, cx: &mut Context<Self>) -> impl IntoElement {
-        let cur = Self::stage_of(s.phase);
-        let names = ["Ticket in", "Agent works", "Claim", "Checks", "You", "Merged"];
-        h_flex()
-            .gap_1()
-            .items_center()
-            .children(names.iter().enumerate().map(|(i, n)| {
-                let done = i < cur || (i == 5 && s.phase == Phase::Merged);
-                let on = i == cur && !done;
-                let c = if done { c_ok() } else if on { if i == 4 && s.phase == Phase::Waiting { c_you() } else { c_run() } } else { pal.muted_fg };
-                h_flex()
-                    .id(("stage", i))
-                    .gap_1p5()
-                    .px_2()
-                    .py_1()
-                    .rounded(px(8.))
-                    .cursor_pointer()
-                    .when(on, |d| d.bg(c.opacity(0.10)))
-                    .hover(|d| d.bg(pal.muted))
-                    .on_click(cx.listener(move |this, _, _, cx| { this.jump(i); cx.notify(); }))
-                    .child(
-                        div()
-                            .size(px(18.))
-                            .rounded_full()
-                            .border_1()
-                            .border_color(c)
-                            .when(done, |d| d.bg(c_ok().opacity(0.15)))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .text_xs()
-                            .text_color(c)
-                            .child(if done { "✓".to_string() } else { (i + 1).to_string() }),
-                    )
-                    .child(div().text_xs().text_color(if on || done { pal.fg } else { pal.muted_fg }).child(*n))
+    fn stepper(&self, s: &Snap, cx: &mut Context<Self>) -> impl IntoElement {
+        let cur = if s.phase == Phase::Merged { 5 } else { Self::stage_of(s.phase) };
+        let steps = [(Lucide::Ticket, "Ticket in"), (Lucide::Bot, "Agent works"), (Lucide::MessageSquareQuote, "Claim"), (Lucide::ListChecks, "Checks"), (Lucide::UserRound, "You"), (Lucide::GitMerge, "Merged")];
+        Stepper::new("stages")
+            .small()
+            .selected_index(cur)
+            .items(steps.into_iter().map(|(icon, name)| StepperItem::new().icon(icon).child(name)))
+            .on_click(cx.listener(|this, step: &usize, _, cx| {
+                this.jump(*step);
+                cx.notify();
             }))
-
     }
 
     fn legend(pal: &Pal) -> impl IntoElement {
         let item = |c: Hsla, t: &'static str| h_flex().gap_1p5().items_center().child(div().w(px(14.)).h(px(3.)).rounded(px(2.)).bg(c)).child(div().text_xs().text_color(pal.muted_fg).child(t));
-        h_flex().gap_3().child(item(c_run(), "in progress")).child(item(c_back(), "sent back")).child(item(c_ok(), "passed")).child(item(c_you(), "needs you"))
+        h_flex()
+            .gap_3()
+            .flex_shrink_0()
+            .child(item(c_run(), "in progress"))
+            .child(item(c_back(), "sent back"))
+            .child(item(c_ok(), "passed"))
+            .child(item(c_you(), "needs you"))
+            .child(h_flex().gap_1p5().items_center().child(div().w(px(14.)).h(px(8.)).rounded(px(3.)).border_1().border_dashed().border_color(c_added())).child(div().text_xs().text_color(pal.muted_fg).child("added")))
     }
 
     fn check_rows(&self, s: &Snap, pal: &Pal) -> impl IntoElement {
@@ -730,17 +806,32 @@ impl DoneRight {
             Phase::ToPr | Phase::Pr | Phase::ToMerged | Phase::Merged => Some(("PASS", c_ok(), "Cart and receipt both show $18.01 over 29 runs, and the new test fails on the merge base.")),
             _ => None,
         };
+        let receipt = self.idx_of(Kind::Receipt);
+        let tab = if receipt.is_some() { self.detail_tab.min(1) } else { 0 };
         v_flex()
+            .id("details")
             .w(px(320.))
             .h_full()
             .flex_shrink_0()
+            .overflow_y_scroll()
             .border_l_1()
             .border_color(pal.border)
             .bg(pal.card)
             .p_4()
-            .gap_3()
+            .gap_2()
             .child(h_flex().gap_2().items_center().child(Tag::primary().small().child("#123")).child(div().text_sm().font_semibold().child("Fix coupon rounding")))
-            .child(div().text_xs().text_color(pal.muted_fg).child("Claude app · shop · fix/coupon-rounding"))
+            .child(
+                // the list clips its overflow, so in this scrolling column it must not shrink
+                div().flex_shrink_0().child(
+                    DescriptionList::vertical()
+                        .columns(3)
+                        .bordered(false)
+                        .small()
+                        .item("Agent", "Claude app", 1)
+                        .item("Repo", "shop", 1)
+                        .item("Round", SharedString::from(format!("{} of 3", s.round)), 1),
+                ),
+            )
             .when_some(verdict, |d, (label, c, body)| {
                 d.child(
                     v_flex()
@@ -754,8 +845,6 @@ impl DoneRight {
                         .child(div().text_sm().child(body)),
                 )
             })
-            .child(div().text_xs().font_semibold().text_color(pal.muted_fg).child(format!("CHECKS · ROUND {}", s.round)))
-            .child(self.check_rows(s, pal))
             .when(waiting, |d| {
                 d.child(
                     v_flex()
@@ -771,12 +860,28 @@ impl DoneRight {
                         .child(
                             h_flex()
                                 .gap_2()
-                                .child(Button::new("looks").primary().small().label("Looks right").on_click(cx.listener(|this, _, _, cx| { this.answer_taste("Looks right"); cx.notify(); })))
-                                .child(Button::new("back").outline().small().label("Put it back").on_click(cx.listener(|this, _, _, cx| { this.answer_taste("Put it back"); cx.notify(); }))),
+                                .child(Button::new("looks").primary().small().label("Looks right").on_click(cx.listener(|this, _, window, cx| this.answer_taste("Looks right", window, cx))))
+                                .child(Button::new("back").outline().small().label("Put it back").on_click(cx.listener(|this, _, window, cx| this.answer_taste("Put it back", window, cx)))),
                         ),
                 )
             })
             .when_some(self.answer.filter(|_| !waiting), |d, a| d.child(div().text_xs().text_color(pal.muted_fg).child(format!("You answered: {a}"))))
+            .child(
+                TabBar::new("dtabs")
+                    .underline()
+                    .small()
+                    .selected_index(tab)
+                    .on_click(cx.listener(|this, ix: &usize, _, cx| {
+                        this.detail_tab = *ix;
+                        cx.notify();
+                    }))
+                    .child(Tab::new().label(format!("Checks · round {}", s.round)))
+                    .when(receipt.is_some(), |t| t.child(Tab::new().label("Receipt").suffix(Icon::from(Lucide::Sparkles).size_3().text_color(c_added())))),
+            )
+            .child(match (tab, receipt) {
+                (1, Some(i)) => div().when(self.show_added, |d| d.pt_3()).child(self.mark(i, self.receipt_diff(s, pal), cx)).into_any_element(),
+                _ => self.check_rows(s, pal).into_any_element(),
+            })
     }
 
     fn flow_view(&self, pal: &Pal, cx: &mut Context<Self>) -> impl IntoElement {
@@ -798,21 +903,32 @@ impl DoneRight {
                             .justify_between()
                             .items_center()
                             .px_5()
-                            .py_3()
+                            .py_2()
                             .border_b_1()
                             .border_color(pal.border)
                             .child(
-                                h_flex()
-                                    .gap_2()
-                                    .child(h_flex().gap_1().pr_2().children(["Fix #123 · shop", "Start an app · studio", "Add anything · screenshot-line"].into_iter().enumerate().map(|(i, t)| {
-                                        Button::new(("flowsel", i)).ghost().small().label(t).selected(self.flow_sel == i).on_click(cx.listener(move |this, _, _, cx| { this.flow_sel = i; cx.notify(); }))
-                                    })))
-                                    .when(self.flow_sel == 0, |d| d.child(Button::new("play").ghost().small().icon(if self.playing { Lucide::Pause } else { Lucide::Play }).label(if self.playing { "Pause" } else { "Play" }).on_click(cx.listener(|this, _, _, cx| { this.playing = !this.playing; cx.notify(); })))
-                                    .child(Button::new("restart").ghost().small().icon(Lucide::RotateCcw).label("Restart").on_click(cx.listener(|this, _, _, cx| { this.restart(); this.playing = true; cx.notify(); })))
-                                    .child(speed_btn("s1", "1×", 1., self, cx))
-                                    .child(speed_btn("s2", "2×", 2., self, cx))),
+                                TabBar::new("flows")
+                                    .segmented()
+                                    .small()
+                                    .selected_index(self.flow_sel)
+                                    .on_click(cx.listener(|this, ix: &usize, _, cx| {
+                                        this.flow_sel = *ix;
+                                        cx.notify();
+                                    }))
+                                    .children([(Lucide::Ticket, "Fix #123"), (Lucide::Blocks, "Start an app"), (Lucide::Puzzle, "Add anything"), (Lucide::Sparkles, "Suggested")].map(|(icon, label)| {
+                                        Tab::new().aria_label(label).child(h_flex().gap_1p5().items_center().child(Icon::from(icon).size_3p5()).child(label))
+                                    })),
                             )
-                            .child(Self::legend(pal)),
+                            .when(self.flow_sel == 0, |d| {
+                                d.child(
+                                    h_flex()
+                                        .gap_1()
+                                        .child(Button::new("play").ghost().small().icon(if self.playing { Lucide::Pause } else { Lucide::Play }).label(if self.playing { "Pause" } else { "Play" }).on_click(cx.listener(|this, _, _, cx| { this.playing = !this.playing; cx.notify(); })))
+                                        .child(Button::new("restart").ghost().small().icon(Lucide::RotateCcw).label("Restart").on_click(cx.listener(|this, _, _, cx| { this.restart(); this.playing = true; cx.notify(); })))
+                                        .child(speed_btn("s1", "1×", 1., self, cx))
+                                        .child(speed_btn("s2", "2×", 2., self, cx)),
+                                )
+                            }),
                     )
                     .child(
                         div()
@@ -822,7 +938,12 @@ impl DoneRight {
                             .child(div().text_sm().text_color(pal.muted_fg).child(match self.flow_sel {
                                 0 => Self::now_line(s.phase),
                                 1 => "studio, from one line: Codex’s #4 failed run 3 of its journey and went back to it. Lanes A and C keep going. You’re next at the release.",
-                                _ => "screenshot-line improved itself: the 300 ms delay applied on its own. Sending to a chat is new access, so it waits for you.",
+                                2 => "screenshot-line improved itself: the 300 ms delay applied on its own. Sending to a chat is new access, so it waits for you.",
+                                _ => match self.proposal {
+                                    Proposal::Pending => "DoneRight noticed you asking “did it deploy?” 9 times this week. Your agent built a gadget for it in a copy; it waits for one tap.",
+                                    Proposal::Accepted => "You added the deploy gadget. It’s on your home, and it improves with use like everything you add.",
+                                    Proposal::Dismissed => "You said not now. DoneRight won’t suggest a deploy gadget again this month.",
+                                },
                             }))
                             .child(
                                 h_flex()
@@ -833,27 +954,32 @@ impl DoneRight {
                                     .child(Tag::info().small().child("#132 running 12 more runs")),
                             ),
                     )
+                    .child(self.gadget_strip(pal, cx))
                     .child(div().flex_1().flex().items_center().justify_center().min_h_0().child(match self.flow_sel {
                         0 => self.map(&s, pal, cx).into_any_element(),
                         1 => playbook_map(pal, s.dash, s.pulse).into_any_element(),
-                        _ => extension_map(pal, s.dash, s.pulse).into_any_element(),
+                        2 => extension_map(pal, s.dash, s.pulse, None).into_any_element(),
+                        _ => extension_map(pal, s.dash, s.pulse, Some(self.proposal)).into_any_element(),
                     }))
                     .child(
                         h_flex()
                             .justify_between()
                             .items_center()
+                            .gap_4()
                             .px_5()
                             .py_3()
                             .border_t_1()
                             .border_color(pal.border)
-                            .when(self.flow_sel == 0, |d| d.child(self.stepper(&s, pal, cx)))
-                            .when(self.flow_sel != 0, |d| d.child(div().text_xs().text_color(pal.muted_fg).child("Each station shows who does it: the agent, a check, or you. Click a flow above to switch."))),
+                            .when(self.flow_sel == 0, |d| d.child(div().flex_1().max_w(px(560.)).child(self.stepper(&s, cx))))
+                            .when(self.flow_sel != 0, |d| d.child(div().text_xs().text_color(pal.muted_fg).child("Each station shows who does it: an agent, a check, or you.")))
+                            .child(Self::legend(pal)),
                     ),
             )
             .child(match self.flow_sel {
                 0 => self.details(&s, pal, cx).into_any_element(),
                 1 => self.playbook_details(pal).into_any_element(),
-                _ => self.extension_details(pal, cx).into_any_element(),
+                2 => self.extension_details(pal, cx).into_any_element(),
+                _ => self.proposal_details(pal, cx).into_any_element(),
             })
     }
 
@@ -944,7 +1070,7 @@ fn shot(label: &'static str, after: bool, pal: &Pal) -> impl IntoElement {
             v_flex()
                 .gap_1()
                 .p_2()
-                .h(px(64.))
+                .h(px(52.))
                 .rounded(px(6.))
                 .border_1()
                 .border_color(pal.border)
@@ -989,12 +1115,26 @@ impl Render for DoneRight {
                         .when(self.screen == Screen::App, |d| {
                             d.child(div().text_xs().text_color(pal.muted_fg).child("watching Claude Code and Codex · 3 repos"))
                                 .child(Tag::danger().small().rounded_full().child(if n == 1 { "1 needs you".to_string() } else { format!("{n} need you") }))
+                                .child(div().w(px(1.)).h(px(16.)).bg(pal.border))
+                                .child(
+                                    Switch::new("show-added")
+                                        .small()
+                                        .color(c_added())
+                                        .checked(self.show_added)
+                                        .label("Show what was added")
+                                        .tooltip("Outline everything your agents added to this app, and what it came from")
+                                        .on_click(cx.listener(|this, on: &bool, _, cx| {
+                                            this.show_added = *on;
+                                            cx.notify();
+                                        })),
+                                )
                         })
                         .child(
                             Button::new("theme")
                                 .ghost()
                                 .xsmall()
                                 .icon(if self.dark { Lucide::Sun } else { Lucide::Moon })
+                                .tooltip(if self.dark { "Light" } else { "Dark" })
                                 .on_click(cx.listener(|this, _, window, cx| {
                                     this.dark = !this.dark;
                                     Theme::change(if this.dark { ThemeMode::Dark } else { ThemeMode::Light }, Some(window), cx);
@@ -1021,7 +1161,31 @@ impl Render for DoneRight {
                 View::Learned => self.learned_full(&pal, cx).into_any_element(),
                 View::Wiki => self.wiki_view(&pal).into_any_element(),
                 View::Numbers => self.numbers_view(&pal).into_any_element(),
+                View::Ext(i) if i < self.added.len() && !self.added[i].removed => self.ext_view(i, &pal, cx).into_any_element(),
+                View::Ext(_) => self.flow_view(&pal, cx).into_any_element(),
             };
+            // what your agents added: one sidebar item each, marked so you can tell
+            let show = self.show_added;
+            let ext_items: Vec<SidebarMenuItem> = self
+                .added
+                .iter()
+                .enumerate()
+                .filter(|(_, a)| !a.removed)
+                .filter_map(|(i, a)| a.nav.clone().map(|(label, icon)| (i, label, icon, a.age < 6.)))
+                .map(|(i, label, icon, fresh)| {
+                    SidebarMenuItem::new(label)
+                        .icon(icon)
+                        .active(self.view == View::Ext(i))
+                        .on_click(cx.listener(move |this, _, _, cx| { this.view = View::Ext(i); cx.notify(); }))
+                        .suffix(move |_, _| {
+                            if show || fresh {
+                                div().px_1().rounded(px(4.)).border_1().border_dashed().border_color(c_added()).text_xs().text_color(c_added()).child(if fresh && !show { "new" } else { "✦ added" }).into_any_element()
+                            } else {
+                                Icon::from(Lucide::Sparkles).size_3().text_color(c_added().opacity(0.7)).into_any_element()
+                            }
+                        })
+                })
+                .collect();
             h_flex()
                 .flex_1()
                 .min_h_0()
@@ -1038,6 +1202,7 @@ impl Render for DoneRight {
                                 nav("Numbers", Lucide::Gauge, View::Numbers, self, cx),
                             ])),
                         )
+                        .child(SidebarGroup::new("Added by you").child(SidebarMenu::new().children(ext_items)))
                         .child(
                             SidebarGroup::new("Make it yours").child(SidebarMenu::new().children([
                                 nav("Add anything", Lucide::Sparkles, View::Add, self, cx),
@@ -1046,11 +1211,13 @@ impl Render for DoneRight {
                             ])),
                         )
                         .footer(SidebarFooter::new().child(
-                            div()
+                            h_flex()
                                 .id("tell")
                                 .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| { this.view = View::Add; cx.notify(); }))
+                                .on_click(cx.listener(|this, _, window, cx| this.open_palette(None, window, cx)))
                                 .w_full()
+                                .justify_between()
+                                .items_center()
                                 .px_2()
                                 .py_1p5()
                                 .rounded(px(8.))
@@ -1059,19 +1226,37 @@ impl Render for DoneRight {
                                 .bg(pal.bg)
                                 .text_xs()
                                 .text_color(pal.muted_fg)
-                                .child("Tell DoneRight…"),
+                                .child("Tell DoneRight…")
+                                .when_some(Keystroke::parse("cmd-k").ok(), |d, k| d.child(Kbd::new(k)))
+                                .test_support(),
                         )),
                 )
                 .child(if self.view == View::Flow { main } else { div().id("view").flex_1().h_full().min_w_0().overflow_y_scroll().child(main).into_any_element() })
                 .into_any_element()
         };
-        v_flex().size_full().bg(pal.bg).text_color(pal.fg).child(title).child(body)
+        v_flex()
+            .size_full()
+            .track_focus(&self.focus)
+            .on_action(cx.listener(|this, _: &OpenPalette, window, cx| this.open_palette(None, window, cx)))
+            .bg(pal.bg)
+            .text_color(pal.fg)
+            .child(title)
+            .child(body)
+            .when(cfg!(feature = "snap"), |d| {
+                // headless snapshots have no window chrome; draw the inactive traffic lights
+                d.relative().children([15.75, 38.75, 61.75].map(|x| div().absolute().left(px(x - 6.5)).top(px(9.25)).size(px(13.)).rounded_full().bg(rgb(0xd7d7d7))))
+            })
     }
 }
 
 fn main() {
+    #[cfg(feature = "snap")]
+    if std::env::var("DR_SNAP").is_ok() {
+        return snap::run();
+    }
     gpui_kit::application().with_assets(gpui_kit::assets::AllAssets).run(|cx| {
         gpui_kit::init(cx);
+        cx.bind_keys([KeyBinding::new("cmd-k", OpenPalette, None)]);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::centered(size(px(1440.), px(860.)), cx)),
             ..TitleBar::window_options()
