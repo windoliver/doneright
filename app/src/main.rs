@@ -303,7 +303,7 @@ impl DoneRight {
             match (kind, arg) {
                 ("toast", "propose") => self.propose_toast(window, cx),
                 ("toast", "accepted") => toast(window, cx, "Added to your home", "Deploys is on your home screen. Claude Code built it on your Max plan: 1% of one window."),
-                ("toast", "installed") => toast(window, cx, "Added to your sidebar", "“Bounces” is under Added by you. Built in one shot from your words; remove it any time."),
+                ("toast", "installed") => toast(window, cx, "Added to Work", "“Bounces” sits in Work, next to Sessions. Built in one shot from your words; remove it any time."),
                 ("toast", "answer") => toast(window, cx, "Sent to the Claude app", "“Looks right.” It carries on with #123."),
                 ("sheet", i) => {
                     let i = i.parse().unwrap_or(0).min(self.added.len() - 1);
@@ -765,7 +765,7 @@ impl DoneRight {
             .child(item(c_back(), "sent back"))
             .child(item(c_ok(), "passed"))
             .child(item(c_you(), "needs you"))
-            .child(h_flex().gap_1p5().items_center().child(div().w(px(14.)).h(px(8.)).rounded(px(3.)).border_1().border_dashed().border_color(c_added())).child(div().text_xs().text_color(pal.muted_fg).child("added")))
+            .child(h_flex().gap_1p5().items_center().child(div().w(px(14.)).h(px(8.)).rounded(px(3.)).border_1().border_dashed().border_color(c_added())).child(div().text_xs().text_color(pal.muted_fg).child("added or changed")))
     }
 
     fn check_rows(&self, s: &Snap, pal: &Pal) -> impl IntoElement {
@@ -801,8 +801,8 @@ impl DoneRight {
     fn details(&self, s: &Snap, pal: &Pal, cx: &mut Context<Self>) -> impl IntoElement {
         let waiting = s.phase == Phase::Waiting;
         let verdict: Option<(&str, Hsla, &str)> = match s.phase {
-            Phase::Back | Phase::Agent2 => Some(("FAIL", c_back(), "One criterion isn’t met: the receipt shows $18.00. Sent back to the agent; nothing needs you.")),
-            Phase::Waiting => Some(("WAITING ON YOU", c_you(), "Every check passes. One taste call is open, and the agent’s stop is held until you answer.")),
+            Phase::Back | Phase::Agent2 => Some(("FAIL", c_back(), "The agent said the totals match. DoneRight saw $18.00 on the receipt and $18.01 in the cart, in journey run 3 of 29. Sent back to the agent; nothing needs you.")),
+            Phase::Waiting => Some(("WAITING ON YOU", c_you(), "5 of 6 checks passed: unit, types, merge base, 29 journey runs and size. Screens needs your eye, and the agent’s stop is held until you answer.")),
             Phase::ToPr | Phase::Pr | Phase::ToMerged | Phase::Merged => Some(("PASS", c_ok(), "Cart and receipt both show $18.01 over 29 runs, and the new test fails on the merge base.")),
             _ => None,
         };
@@ -856,6 +856,7 @@ impl DoneRight {
                         .child(div().text_xs().font_semibold().text_color(c_you()).child("TASTE CALL"))
                         .child(div().text_sm().font_semibold().child("Does the new checkout layout look right?"))
                         .child(h_flex().gap_2().child(shot("Before", false, pal)).child(shot("After", true, pal)))
+                        .child(div().text_xs().child("Look at: the total and the Pay button stay in view after the move."))
                         .child(div().text_xs().text_color(pal.muted_fg).child("Your past calls on checkout: 3 moves like this approved, 1 put back."))
                         .child(
                             h_flex()
@@ -876,7 +877,7 @@ impl DoneRight {
                         cx.notify();
                     }))
                     .child(Tab::new().label(format!("Checks · round {}", s.round)))
-                    .when(receipt.is_some(), |t| t.child(Tab::new().label("Receipt").suffix(Icon::from(Lucide::Sparkles).size_3().text_color(c_added())))),
+                    .when(receipt.is_some(), |t| t.child(if self.show_added { Tab::new().label("Receipt").suffix(Icon::from(Lucide::Sparkles).size_3().text_color(c_added())) } else { Tab::new().label("Receipt") })),
             )
             .child(match (tab, receipt) {
                 (1, Some(i)) => div().when(self.show_added, |d| d.pt_3()).child(self.mark(i, self.receipt_diff(s, pal), cx)).into_any_element(),
@@ -945,14 +946,19 @@ impl DoneRight {
                                     Proposal::Dismissed => "You said not now. DoneRight won’t suggest a deploy gadget again this month.",
                                 },
                             }))
-                            .child(
-                                h_flex()
+                            .child({
+                                // your version of the shipped Flow view adds this row; it's outlined as yours
+                                let also = h_flex()
                                     .gap_2()
                                     .pt_2()
                                     .child(div().text_xs().text_color(pal.muted_fg).child("Also:"))
-                                    .child(Tag::secondary().small().child("#131 waits on your sign-in"))
-                                    .child(Tag::info().small().child("#132 running 12 more runs")),
-                            ),
+                                    .child(Tag::secondary().small().child("#131 waits on your sign-in · 40 min"))
+                                    .child(Tag::info().small().child("#132 journeys 17 of 29 · 1m 40s"));
+                                match self.added.iter().position(|a| !a.removed && a.replaces == Some(View::Flow)) {
+                                    Some(i) => div().when(self.show_added, |d| d.pt_3()).child(self.mark(i, also, cx)).into_any_element(),
+                                    None => also.into_any_element(),
+                                }
+                            }),
                     )
                     .child(self.gadget_strip(pal, cx))
                     .child(div().flex_1().flex().items_center().justify_center().min_h_0().child(match self.flow_sel {
@@ -1121,8 +1127,8 @@ impl Render for DoneRight {
                                         .small()
                                         .color(c_added())
                                         .checked(self.show_added)
-                                        .label("Show what was added")
-                                        .tooltip("Outline everything your agents added to this app, and what it came from")
+                                        .label("Show what changed")
+                                        .tooltip("Outline everything you or your agents added or changed in this app, and where each came from")
                                         .on_click(cx.listener(|this, on: &bool, _, cx| {
                                             this.show_added = *on;
                                             cx.notify();
@@ -1164,7 +1170,8 @@ impl Render for DoneRight {
                 View::Ext(i) if i < self.added.len() && !self.added[i].removed => self.ext_view(i, &pal, cx).into_any_element(),
                 View::Ext(_) => self.flow_view(&pal, cx).into_any_element(),
             };
-            // what your agents added: one sidebar item each, marked so you can tell
+            // what you and your agents added sits in Work with everything else; it's marked only
+            // while Show what changed is on, or for a moment when it first appears
             let show = self.show_added;
             let ext_items: Vec<SidebarMenuItem> = self
                 .added
@@ -1178,14 +1185,21 @@ impl Render for DoneRight {
                         .active(self.view == View::Ext(i))
                         .on_click(cx.listener(move |this, _, _, cx| { this.view = View::Ext(i); cx.notify(); }))
                         .suffix(move |_, _| {
-                            if show || fresh {
-                                div().px_1().rounded(px(4.)).border_1().border_dashed().border_color(c_added()).text_xs().text_color(c_added()).child(if fresh && !show { "new" } else { "✦ added" }).into_any_element()
-                            } else {
-                                Icon::from(Lucide::Sparkles).size_3().text_color(c_added().opacity(0.7)).into_any_element()
-                            }
+                            if show || fresh { added_chip(if fresh && !show { "new" } else { "✦ added" }) } else { div().into_any_element() }
                         })
                 })
                 .collect();
+            let flow_changed = self.added.iter().any(|a| !a.removed && a.replaces == Some(View::Flow));
+            let flow_item = nav("Flow", Lucide::Workflow, View::Flow, self, cx);
+            let flow_item = if show && flow_changed { flow_item.suffix(|_, _| added_chip("✦ changed")) } else { flow_item };
+            let mut work = vec![
+                flow_item,
+                nav("Needs you", Lucide::Inbox, View::NeedsYou, self, cx).suffix(move |_, _| Tag::danger().small().rounded_full().child(format!("{n}"))),
+                nav("Sessions", Lucide::LayoutDashboard, View::Sessions, self, cx),
+            ];
+            work.extend(ext_items);
+            work.push(nav("Map", Lucide::Map, View::Map, self, cx));
+            work.push(nav("Numbers", Lucide::Gauge, View::Numbers, self, cx));
             h_flex()
                 .flex_1()
                 .min_h_0()
@@ -1193,16 +1207,7 @@ impl Render for DoneRight {
                     Sidebar::new("nav")
                         .w(px(212.))
                         .header(SidebarHeader::new().child(v_flex().child(div().text_sm().font_semibold().child("acme")).child(div().text_xs().text_color(pal.muted_fg).child("shop · api · docs"))))
-                        .child(
-                            SidebarGroup::new("Work").child(SidebarMenu::new().children([
-                                nav("Flow", Lucide::Workflow, View::Flow, self, cx),
-                                nav("Needs you", Lucide::Inbox, View::NeedsYou, self, cx).suffix(move |_, _| Tag::danger().small().rounded_full().child(format!("{n}"))),
-                                nav("Sessions", Lucide::LayoutDashboard, View::Sessions, self, cx),
-                                nav("Map", Lucide::Map, View::Map, self, cx),
-                                nav("Numbers", Lucide::Gauge, View::Numbers, self, cx),
-                            ])),
-                        )
-                        .child(SidebarGroup::new("Added by you").child(SidebarMenu::new().children(ext_items)))
+                        .child(SidebarGroup::new("Work").child(SidebarMenu::new().children(work)))
                         .child(
                             SidebarGroup::new("Make it yours").child(SidebarMenu::new().children([
                                 nav("Add anything", Lucide::Sparkles, View::Add, self, cx),

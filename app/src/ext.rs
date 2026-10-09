@@ -1,8 +1,9 @@
-//! What your agents added to the app itself: gadgets on the home screen, items in the
-//! sidebar, a tab in a claim's details. Each was built in one shot from one sentence,
-//! yours or DoneRight's suggestion from how you work, and is drawn with the app's own
-//! components, so it looks native and stays in its spot. "Show what was added" outlines
-//! every one of them; a click on the outline says where it came from.
+//! What you and your agents added to the app, or changed in it: gadgets on the home screen,
+//! items in the sidebar, a tab in a claim's details, or your version of part of a shipped
+//! view. Each was built in one shot from one sentence, yours or DoneRight's suggestion from
+//! how you work, and is drawn with the app's own components, so it looks native and sits
+//! where you put it, among the shipped pieces. "Show what changed" outlines every one of
+//! them; a click on the outline says where it came from.
 
 use super::*;
 use gpui_kit::component::{
@@ -12,7 +13,7 @@ use gpui_kit::component::{
     notification::Notification,
 };
 
-/// The one color for "added by your agent". It is not a status, so it is drawn dashed.
+/// The one color for "added or changed by you or your agent". It is not a status, so it is drawn dashed.
 pub(crate) fn c_added() -> Hsla { hsla(188. / 360., 0.80, 0.36, 1.) }
 
 pub(crate) const GADGET_H: f32 = 124.;
@@ -36,6 +37,8 @@ pub(crate) struct Added {
     pub nav: Option<(SharedString, Lucide)>,
     pub gadget: bool,
     pub tab: bool,
+    /// a shipped view this changes; the shipped one stays one click away
+    pub replaces: Option<View>,
     pub can: Vec<&'static str>,
     pub cant: Vec<&'static str>,
     pub history: Vec<(&'static str, &'static str)>,
@@ -49,6 +52,7 @@ impl Added {
         if let Some((label, _)) = &self.nav { v.push(format!("sidebar ({label})")); }
         if self.gadget { v.push("home".to_string()); }
         if self.tab { v.push("claim details".to_string()); }
+        if self.replaces.is_some() { v.push("Flow, in place of the part it changes".to_string()); }
         if v.is_empty() { "over your screen, not in this app".to_string() } else { v.join(" · ") }
     }
 }
@@ -67,6 +71,7 @@ pub(crate) fn seed_added() -> Vec<Added> {
             nav: Some(("Screenshots".into(), Lucide::Images)),
             gadget: true,
             tab: false,
+            replaces: None,
             can: vec!["see new files in ~/Desktop/Screenshots", "show a line under the menu bar", "copy a screenshot to the clipboard"],
             cant: vec!["use the network", "move, change or delete files", "read any other folder"],
             history: vec![("0.1.0", "built from your words, Wednesday"), ("0.1.1", "waits 300 ms before the line glides down; applied under your rule")],
@@ -85,6 +90,7 @@ pub(crate) fn seed_added() -> Vec<Added> {
             nav: None,
             gadget: true,
             tab: false,
+            replaces: None,
             can: vec!["read the receipts mailbox", "show a gadget on your home"],
             cant: vec!["send, move or delete mail", "read any other mailbox"],
             history: vec![("0.3.0", "built from your words"), ("0.3.1", "groups bounces by sender; applied on its own Oct 2")],
@@ -103,6 +109,7 @@ pub(crate) fn seed_added() -> Vec<Added> {
             nav: None,
             gadget: false,
             tab: true,
+            replaces: None,
             can: vec!["read a claim’s journey screenshots and receipts", "add a tab to a claim’s details"],
             cant: vec!["use the network", "change a check or its verdict"],
             history: vec![("0.1.0", "suggested Monday; you said yes")],
@@ -121,9 +128,29 @@ pub(crate) fn seed_added() -> Vec<Added> {
             nav: None,
             gadget: false,
             tab: false,
+            replaces: None,
             can: vec!["see your screen only while you hold ⌥Space", "draw a pointer over the screen"],
             cant: vec!["save what it sees without asking", "use the network"],
             history: vec![("0.1.0", "built from your words, Thursday")],
+            age: 1e6,
+            removed: false,
+        },
+        Added {
+            key: "flow-also".into(),
+            version: "0.1.0",
+            words: "In Flow, also show the other claims that are moving, under Now.".into(),
+            suggested: false,
+            agent: "Claude Code",
+            cost: "1% of one 5-hour window",
+            when: "Tuesday",
+            kind: Kind::Other,
+            nav: None,
+            gadget: false,
+            tab: false,
+            replaces: Some(View::Flow),
+            can: vec!["read the claims you can already see", "change the Flow view"],
+            cant: vec!["use the network", "change a claim or its verdict"],
+            history: vec![("0.1.0", "your version of the shipped Flow view; the shipped one is one click away")],
             age: 1e6,
             removed: false,
         },
@@ -143,9 +170,10 @@ pub(crate) fn deploy_gadget() -> Added {
         nav: None,
         gadget: true,
         tab: false,
+        replaces: None,
         can: vec!["read deploy status with your Vercel and Fly logins, read-only"],
         cant: vec!["deploy, roll back or change anything", "use any other login"],
-        history: vec![("0.1.0", "built in a copy, checks passed, added by you")],
+        history: vec![("0.1.0", "built in a copy, checks passed; you added it")],
         age: 0.,
         removed: false,
     }
@@ -180,12 +208,18 @@ pub(crate) fn added_from_build(words: &str) -> Added {
         nav: Some((label, icon)),
         gadget: false,
         tab: false,
+        replaces: None,
         can: vec!["read only what its grant declares", "show a panel in your sidebar"],
         cant: vec!["send anything", "change files outside its own folder"],
-        history: vec![("0.1.0", "built from your words, checked, added by you")],
+        history: vec![("0.1.0", "built from your words, checked; you added it")],
         age: 0.,
         removed: false,
     }
+}
+
+/// The small dashed chip on a sidebar item you or your agents added or changed.
+pub(crate) fn added_chip(t: &'static str) -> AnyElement {
+    div().px_1().rounded(px(4.)).border_1().border_dashed().border_color(c_added()).text_xs().text_color(c_added()).child(t).into_any_element()
 }
 
 pub(crate) fn toast(window: &mut Window, cx: &mut App, title: impl Into<SharedString>, msg: impl Into<SharedString>) {
@@ -214,7 +248,7 @@ pub(crate) fn deploy_preview(pal: &Pal) -> Div {
             .child(div().w(px(34.)).text_xs().font_semibold().child(name))
             .child(div().text_xs().text_color(pal.muted_fg).child(note))
     };
-    v_flex().gap_0p5().child(row("shop", St::Ok, "v1.42 · 12 min ago")).child(row("api", St::Run, "deploying · 60%")).child(row("docs", St::Ok, "yesterday"))
+    v_flex().gap_0p5().child(row("shop", St::Ok, "v1.42 · 12 min ago")).child(row("api", St::Run, "deploying · 1m 20s")).child(row("docs", St::Ok, "yesterday"))
 }
 
 impl DoneRight {
@@ -222,15 +256,15 @@ impl DoneRight {
         self.added.iter().position(|a| a.kind == kind && !a.removed)
     }
 
-    /// Extension-built UI. Plain normally, with a brief glow when it has just appeared;
-    /// with "Show what was added" on, a dashed outline and a chip naming its source.
+    /// What you or your agents added or changed. Plain normally, with a brief glow when it
+    /// has just appeared; with "Show what changed" on, a dashed outline and a chip naming its source.
     pub(crate) fn mark(&self, idx: usize, inner: impl IntoElement, cx: &mut Context<Self>) -> AnyElement {
         let a = &self.added[idx];
         let fresh = a.age < 5.;
         if !self.show_added && !fresh {
             return inner.into_any_element();
         }
-        let chip = if a.suggested { format!("✦ one shot · suggested · {}", a.key) } else { format!("✦ one shot · {}", a.key) };
+        let chip = if a.replaces.is_some() { format!("✦ your version · {}", a.key) } else if a.suggested { format!("✦ one shot · suggested · {}", a.key) } else { format!("✦ one shot · {}", a.key) };
         let words = a.words.clone();
         let glow = if fresh && !self.show_added { (1. - a.age / 5.).clamp(0., 1.) } else { 1. };
         div()
@@ -343,8 +377,7 @@ impl DoneRight {
                     .gap_1p5()
                     .items_center()
                     .child(Icon::from(icon).size_3p5().text_color(pal.muted_fg))
-                    .child(div().flex_1().text_xs().font_semibold().text_color(pal.muted_fg).child(title))
-                    .child(Icon::from(Lucide::Sparkles).size_3().text_color(c_added().opacity(0.75))),
+                    .child(div().flex_1().text_xs().font_semibold().text_color(pal.muted_fg).child(title)),
             )
             .child(body)
             .on_click(cx.listener(move |this, _, window, cx| {
@@ -435,7 +468,7 @@ impl DoneRight {
         let label = a.nav.as_ref().map(|n| n.0.to_string()).unwrap_or_default();
         self.added.push(a);
         b.added = Some(self.added.len() - 1);
-        toast(window, cx, "Added to your sidebar", format!("“{label}” is under Added by you. Built in one shot from your words; remove it any time."));
+        toast(window, cx, "Added to Work", format!("“{label}” sits in Work, next to Sessions. Built in one shot from your words; remove it any time."));
         cx.notify();
     }
 
@@ -496,7 +529,7 @@ impl DoneRight {
                     .child(div().flex_1())
                     .child(Button::new("about").ghost().small().icon(Lucide::Info).label("Where it came from").on_click(cx.listener(move |this, _, window, cx| this.open_about(idx, window, cx)))),
             )
-            .child(div().text_xs().text_color(pal.muted_fg).child(format!("Added by you from “{}” · {} built it on your plan", a.words, a.agent)))
+            .child(div().text_xs().text_color(pal.muted_fg).child(format!("From “{}” · {} built it on your plan", a.words, a.agent)))
             .child(self.mark(idx, body, cx))
     }
 
@@ -595,7 +628,7 @@ impl DoneRight {
             for (label, icon, _) in GO {
                 go = go.item(CommandItem::new().label(label).icon(icon));
             }
-            let show = CommandGroup::new().label("Show").item(CommandItem::new().label("Show what was added").icon(Lucide::ScanEye).checked(show_added));
+            let show = CommandGroup::new().label("Show").item(CommandItem::new().label("Show what changed").icon(Lucide::ScanEye).checked(show_added));
             dialog.w(px(620.)).p_0().close_button(false).child(
                 Command::new(&st)
                     .placeholder("Say what you want, or where to go")
@@ -635,7 +668,7 @@ impl DoneRight {
 fn about_body(a: &Added, pal: &Pal) -> Div {
     v_flex()
         .gap_3()
-        .child(div().text_xs().font_semibold().text_color(c_added()).child(if a.suggested { "SUGGESTED BY DONERIGHT FROM HOW YOU WORK" } else { "BUILT IN ONE SHOT FROM YOUR WORDS" }))
+        .child(div().text_xs().font_semibold().text_color(c_added()).child(if a.suggested { "SUGGESTED BY DONERIGHT FROM HOW YOU WORK" } else if a.replaces.is_some() { "YOUR VERSION OF A SHIPPED VIEW, FROM YOUR WORDS" } else { "BUILT IN ONE SHOT FROM YOUR WORDS" }))
         .child(div().p_3().rounded(px(10.)).border_l_2().border_color(c_added()).bg(c_added().opacity(0.07)).text_sm().child(format!("“{}”", a.words)))
         .child(
             div().flex_shrink_0().child(
@@ -655,7 +688,7 @@ fn about_body(a: &Added, pal: &Pal) -> Div {
         .child(v_flex().gap_1().child(section("HISTORY", pal)).children(a.history.iter().map(|(v, what)| {
             h_flex().gap_2().items_start().child(div().w(px(40.)).flex_shrink_0().text_xs().font_semibold().child(*v)).child(div().flex_1().text_xs().text_color(pal.muted_fg).child(*what))
         })))
-        .child(div().text_xs().text_color(pal.muted_fg).child("Its panel is a script the app loads through gpui-shell, with no rebuild. The app draws it with the same components as everything else, so it looks native and stays in its spot, and it gets no access beyond the grant above."))
+        .child(div().text_xs().text_color(pal.muted_fg).child("Its panel is a script the app loads through gpui-shell, with no rebuild. The app draws it with the same components as everything else, so it looks native and sits where you put it, and it gets no access beyond the grant above. If it changes a shipped view, the shipped one stays one click away."))
 }
 
 fn bounces_panel(pal: &Pal) -> impl IntoElement {

@@ -303,17 +303,21 @@ pub(crate) struct Ses {
     pub doing: &'static str,
     pub st: St,
     pub flag: Option<&'static str>,
+    /// how long it has been in this state
+    pub since: &'static str,
+    /// a status word other than the state's own, such as "checking" after the agent says done
+    pub label: Option<&'static str>,
 }
 pub(crate) fn sessions() -> Vec<Ses> {
     vec![
-        Ses { id: "coupon", repo: "shop", agent: "Claude app", what: "#123 Fix coupon rounding", doing: "waiting on your taste call", st: St::You, flag: None },
-        Ses { id: "search", repo: "shop", agent: "Claude app", what: "#132 Search keeps the price filter", doing: "12 more journey runs", st: St::Run, flag: None },
-        Ses { id: "search2", repo: "shop", agent: "Codex app", what: "#132 Search keeps the price filter", doing: "editing src/search/filters.ts", st: St::Run, flag: Some("same issue as Claude · search") },
-        Ses { id: "tax", repo: "shop", agent: "Codex app", what: "#131 Show tax on the receipt", doing: "blocked on shopper-2’s sign-in", st: St::Back, flag: None },
-        Ses { id: "export", repo: "shop", agent: "Claude app", what: "#133 Export orders to CSV", doing: "PASS · PR open", st: St::Ok, flag: None },
-        Ses { id: "rate", repo: "api", agent: "Codex app", what: "#88 Rate-limit the export", doing: "writing the failing test", st: St::Run, flag: None },
-        Ses { id: "auth", repo: "api", agent: "Claude app", what: "#91 Rotate service tokens", doing: "stopped by a usage limit; resumes after 2:55 pm", st: St::Back, flag: Some("interrupted") },
-        Ses { id: "guide", repo: "docs", agent: "Claude app", what: "Update the setup guide", doing: "idle for 2 h", st: St::Idle, flag: Some("not pushed") },
+        Ses { id: "coupon", repo: "shop", agent: "Claude app", what: "#123 Fix coupon rounding", doing: "waiting on your taste call", st: St::You, flag: None, since: "12 min", label: None },
+        Ses { id: "search", repo: "shop", agent: "Claude app", what: "#132 Search keeps the price filter", doing: "journeys 17 of 29 · 1m 40s", st: St::Run, flag: None, since: "4 min", label: None },
+        Ses { id: "search2", repo: "shop", agent: "Codex app", what: "#132 Search keeps the price filter", doing: "editing src/search/filters.ts", st: St::Run, flag: Some("same issue as Claude · search"), since: "9 min", label: None },
+        Ses { id: "tax", repo: "shop", agent: "Codex app", what: "#131 Show tax on the receipt", doing: "blocked on shopper-2’s sign-in", st: St::Back, flag: None, since: "40 min", label: None },
+        Ses { id: "export", repo: "shop", agent: "Claude app", what: "#133 Export orders to CSV", doing: "PASS · 6 of 6 checks · PR open", st: St::Ok, flag: None, since: "1 h", label: None },
+        Ses { id: "rate", repo: "api", agent: "Codex app", what: "#88 Rate-limit the export", doing: "says done · unit and types passed, journeys 3 of 12", st: St::Run, flag: None, since: "2 min", label: Some("checking") },
+        Ses { id: "auth", repo: "api", agent: "Claude app", what: "#91 Rotate service tokens", doing: "stopped by a usage limit; resumes after 2:55 pm", st: St::Back, flag: Some("interrupted"), since: "25 min", label: None },
+        Ses { id: "guide", repo: "docs", agent: "Claude app", what: "Update the setup guide", doing: "quiet since 1:10 pm · nothing pushed", st: St::Idle, flag: Some("not pushed"), since: "2 h", label: None },
     ]
 }
 
@@ -336,12 +340,13 @@ impl DoneRight {
                 let (label, tag) = if paused {
                     ("paused by you", Tag::secondary())
                 } else {
-                    match s.st {
-                        St::You => ("needs you", Tag::danger()),
-                        St::Run => ("working", Tag::info()),
-                        St::Back => ("stuck", Tag::warning()),
-                        St::Ok => ("done", Tag::success()),
-                        St::Idle => ("idle", Tag::secondary()),
+                    match (s.st, s.label) {
+                        (St::Run, Some(l)) => (l, Tag::info()),
+                        (St::You, _) => ("needs you", Tag::danger()),
+                        (St::Run, _) => ("working", Tag::info()),
+                        (St::Back, _) => ("stuck", Tag::warning()),
+                        (St::Ok, _) => ("done", Tag::success()),
+                        (St::Idle, _) => ("idle", Tag::secondary()),
                     }
                 };
                 col = col.child(
@@ -362,7 +367,9 @@ impl DoneRight {
                                 .child(div().text_sm().font_semibold().child(s.what))
                                 .child(div().text_xs().text_color(pal.muted_fg).child(if paused { "its next tool call waits until you resume it" } else if noted { "your note goes in at its next stop" } else { s.doing })),
                         )
+                        .when(s.st == St::Idle && !paused, |d| d.opacity(0.72))
                         .when_some(s.flag.filter(|_| !paused), |d, f| d.child(Tag::warning().small().outline().child(f)))
+                        .when(!paused, |d| d.child(div().w(px(44.)).text_xs().text_color(pal.muted_fg).text_right().child(s.since)))
                         .child(tag.small().child(label))
                         .child(Button::new(SharedString::from(format!("open-{id}"))).ghost().xsmall().icon(Lucide::ExternalLink).label("Open"))
                         .child(
@@ -500,7 +507,7 @@ impl DoneRight {
                         0 => ShimmerText::new("Claude Code, headless, on your Max plan: writing the panel script, its grant and its tests").id(("sh", i)).text_xs().into_any_element(),
                         1 => ShimmerText::new("conformance · its own tests · a render · a dry run on your data · an access check").id(("sh", i)).text_xs().into_any_element(),
                         2 => div().text_xs().text_color(pal.muted_fg).child("All checks passed. It can read only what it declared, and it can’t send anything.").into_any_element(),
-                        _ => div().text_xs().text_color(pal.muted_fg).child("In your sidebar under Added by you, loaded into the app with no rebuild.").into_any_element(),
+                        _ => div().text_xs().text_color(pal.muted_fg).child("In Work in your sidebar, next to Sessions, loaded into the app with no rebuild.").into_any_element(),
                     })
                     .when(stage == 2, |d| {
                         d.child(
@@ -804,7 +811,7 @@ impl DoneRight {
             .gap_3()
             .child(div().text_lg().font_semibold().child(if n == 0 { "Nothing needs you".to_string() } else if n == 1 { "One thing needs you".to_string() } else { format!("{n} things need you. Answer them in one visit.") }))
             .when(waiting, |d| {
-                d.child(card(pal, c_you(), "TASTE CALL · CLAUDE APP · #123", "Does the new checkout layout look right?", "Every check passes. Your past calls: 3 moves like this approved, 1 put back.")
+                d.child(card(pal, c_you(), "TASTE CALL · CLAUDE APP · #123", "Does the new checkout layout look right?", "5 of 6 checks passed; screens needs your eye. Look at: the total and the Pay button stay in view after the move. Your past calls: 3 moves like this approved, 1 put back.")
                     .child(h_flex().gap_2().child(shot("Before", false, pal)).child(shot("After", true, pal)).max_w(px(360.)))
                     .child(h_flex().gap_2().child(Button::new("nl").primary().small().label("Looks right").on_click(cx.listener(|this, _, window, cx| this.answer_taste("Looks right", window, cx)))).child(Button::new("nb").outline().small().label("Put it back").on_click(cx.listener(|this, _, window, cx| this.answer_taste("Put it back", window, cx))))))
             })
@@ -817,7 +824,7 @@ impl DoneRight {
                         .gap_2()
                         .child(Button::new(SharedString::from(format!("a-{k}"))).primary().small().label(a).on_click(cx.listener(move |this, _, window, cx| {
                             this.answers.insert(k, a);
-                            toast(window, cx, "Done", format!("“{a}.” The agent that asked hears it at its next stop."));
+                            toast(window, cx, "Answered", format!("“{a}.” The agent that asked hears it at its next stop."));
                             cx.notify();
                         })))
                         .child(Button::new(SharedString::from(format!("b-{k}"))).outline().small().label(b).on_click(cx.listener(move |this, _, _, cx| { this.answers.insert(k, b); cx.notify(); }))),
